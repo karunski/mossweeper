@@ -5,6 +5,7 @@
 #include <sid.h>
 #include <music_player.h>
 #include <pla.h>
+#include "find.h"
 
 extern "C" {
 extern c64::Sprite sprite_data_ram[32];
@@ -173,6 +174,10 @@ void clear_screen() {
 
     TilePoint down(std::uint8_t distance = 1) const {
       return TilePoint{X, static_cast<std::uint8_t>(Y + distance)};
+    }
+
+    bool operator==(const TilePoint & rhs) const {
+      return X == rhs.X && Y == rhs.Y;
     }
 
     std::uint8_t X;
@@ -455,6 +460,7 @@ void clear_screen() {
     }
   };
 
+  struct ExposeResultContinuation;
   struct GameState {
     using BitVector = RowBits[ROWS_MAX];
     BitVector mine_bits;
@@ -464,6 +470,7 @@ void clear_screen() {
     std::uint16_t hidden_clear : 9;
     bool time_running : 1;
     std::uint16_t timer: 15;
+    const ExposeResultContinuation *expose_continuation;
 
     static std::uint8_t count_bits(const BitVector & state_bits, TilePoint selection)
     {
@@ -537,6 +544,7 @@ void clear_screen() {
       memset(mine_bits, 0, sizeof(mine_bits));
       memset(exposed_bits, 0, sizeof(exposed_bits));
       memset(flag_bits, 0, sizeof(flag_bits));
+      expose_continuation = nullptr;
     }
 
   };
@@ -579,77 +587,235 @@ void clear_screen() {
     return !is_bad;
   }
 
-  bool expose_recurse(TilePoint board_selection, std::uint8_t depth) {
+  struct expose_result {
+    bool is_ok;
+    const ExposeResultContinuation *next_expose;
+  };
 
-    if (depth > 30) {
-      return true;
+  struct ExposeResultContinuation {
+    virtual expose_result operator()() const = 0;
+  };
+
+  struct ExposeResultDelay : public ExposeResultContinuation {
+    virtual expose_result operator()() const {
+      if (m_skip_count--) {
+        return {true, this};
+      }
+
+      return {true, m_next};
     }
 
+    static std::uint8_t                     m_skip_count;
+    static const ExposeResultContinuation * m_next;
+  };
+
+  std::uint8_t ExposeResultDelay::m_skip_count = 0;
+  const ExposeResultContinuation * ExposeResultDelay::m_next = nullptr;
+
+  ExposeResultDelay expose_delay;
+
+  struct OptionalTilePoint : public TilePoint {
+
+    OptionalTilePoint() = default;
+    OptionalTilePoint(TilePoint p) : TilePoint{p}, is_valid{true} {}
+
+    OptionalTilePoint left() const {
+      return is_valid && X > 0 ? OptionalTilePoint{TilePoint::left()} : OptionalTilePoint{};
+    }
+
+    OptionalTilePoint right() const {
+      return is_valid && X < (game_columns - 1) ? OptionalTilePoint{TilePoint::right()} : OptionalTilePoint{};
+    }
+
+    OptionalTilePoint up() const {
+      return is_valid && Y > 0 ? OptionalTilePoint{TilePoint::up()} : OptionalTilePoint{};
+    }
+
+    OptionalTilePoint down() const {
+      return is_valid && Y < (game_rows - 1) ? OptionalTilePoint{TilePoint::down()} : OptionalTilePoint{};
+    }
+
+    bool is_valid = false;
+  };
+
+  OptionalTilePoint filter_already_exposed(const OptionalTilePoint & src) {
+    return src.is_valid && !game_state.exposed_bits[src.Y].test(src.X) ? src : OptionalTilePoint{};
+  }
+
+  struct ExposeBuffer {
+    TilePoint data[COLUMNS_MAX + ROWS_MAX];
+    TilePoint * m_end = data;
+
+    void push_back(OptionalTilePoint optional_tile_point) {
+      if (optional_tile_point.is_valid && m_end != data + std::size(data)) {
+        *m_end = static_cast<const TilePoint &>(optional_tile_point);
+        m_end += 1;
+      }
+    }
+
+    TilePoint pop_back() {
+      return *(--m_end);
+    }
+
+    void clear() { m_end = data; }
+
+    bool empty() const { return m_end == data; }
+
+    auto size() const { return m_end - data; }
+
+    const TilePoint *begin() const { return data; }
+    const TilePoint *end() const { return m_end; }
+  };
+
+  ExposeBuffer expose_buffers[2];
+  ExposeBuffer *back_expose_buffer = &expose_buffers[0];
+  ExposeBuffer *front_expose_buffer = &expose_buffers[1];
+  ExposeBuffer copy_temp;
+
+  void swap_expose_buffers() {
+    const auto temp = back_expose_buffer;
+    back_expose_buffer = front_expose_buffer;
+    front_expose_buffer = temp;
+  }
+
+  OptionalTilePoint
+  filter_if_in_buffers(const OptionalTilePoint &board_selection_optional) {
+    if (!board_selection_optional.is_valid ||
+        std::find(front_expose_buffer->begin(), front_expose_buffer->end(),
+                  static_cast<const TilePoint &>(board_selection_optional)) !=
+            front_expose_buffer->end()||
+        std::find(back_expose_buffer->begin(), back_expose_buffer->end(),
+                  static_cast<const TilePoint &>(board_selection_optional)) !=
+            back_expose_buffer->end()) {
+      return OptionalTilePoint{};
+    }
+
+    return board_selection_optional;
+  }
+
+  void append_back_expose_buffer(const OptionalTilePoint & board_selection_optional) {
+    {
+      const auto left_tile = board_selection_optional.left();
+      back_expose_buffer->push_back(
+          filter_if_in_buffers(filter_already_exposed(left_tile.down())));
+      back_expose_buffer->push_back(
+          filter_if_in_buffers(filter_already_exposed(left_tile)));
+      back_expose_buffer->push_back(
+          filter_if_in_buffers(filter_already_exposed(left_tile.up())));
+    }
+
+    back_expose_buffer->push_back(filter_if_in_buffers(
+        filter_already_exposed(board_selection_optional.up())));
+
+    {
+      const auto right_tile = board_selection_optional.right();
+      back_expose_buffer->push_back(
+          filter_if_in_buffers(filter_already_exposed(right_tile.up())));
+      back_expose_buffer->push_back(
+          filter_if_in_buffers(filter_already_exposed(right_tile)));
+      back_expose_buffer->push_back(
+          filter_if_in_buffers(filter_already_exposed(right_tile.down())));
+    }
+
+    back_expose_buffer->push_back(filter_if_in_buffers(
+        filter_already_exposed(board_selection_optional.down())));
+  }
+
+  struct ExposeResultNext : public ExposeResultContinuation {
+    expose_result operator()() const override {
+
+      back_expose_buffer->clear();
+
+      constexpr std::uint8_t MAX_EXPOSE_PER_ITER = 1;
+      std::uint8_t exposed = 0;
+
+      while (!front_expose_buffer->empty()) {
+
+        const auto expose_target = front_expose_buffer->pop_back();
+
+        if (game_state.exposed_test_and_set(expose_target)) {
+          continue;
+        }
+
+        // bad-flag check.
+        if (game_state.is_flagged(expose_target)) {
+          if (!game_state.count_mine(expose_target)) {
+            return {bad_flag_at(expose_target), nullptr};
+          }
+          continue;
+        }
+
+        const auto mine_count = game_state.count_mines_around(expose_target);
+        if (game_state.count_flags_around(expose_target) > mine_count) {
+          return {bad_around_selection(expose_target), nullptr};
+        }
+
+        GameBoardDrawer::ShowCount(mine_count, expose_target);
+        exposed += 1;
+
+        game_state.hidden_clear -= 1;
+
+        if (mine_count == 0)
+        {
+          append_back_expose_buffer(expose_target);
+        }
+
+        // Early exit by limiting the max number of "expose" tiles that change in the current
+        // invocation of this call.
+        if (exposed == MAX_EXPOSE_PER_ITER)
+        {
+          // copy the un-traversed region of the front buffer to the back
+          // buffer, so it will be examined at some point in the future.
+          for (const auto & unexposed_tile : *front_expose_buffer)
+          {
+            back_expose_buffer->push_back(unexposed_tile);
+          }
+
+          break;
+        }
+      }
+
+      swap_expose_buffers();
+
+      return {true, front_expose_buffer->empty() ? nullptr : this};
+    }
+  };
+
+  const ExposeResultNext expose_must_continue;
+
+  expose_result
+  expose_recurse(TilePoint board_selection, std::uint8_t depth) {
+
     const auto flagged = game_state.is_flagged(board_selection);
-    const auto is_mine = game_state.count_mine(board_selection);
-    if (is_mine && !flagged) {
+    if (game_state.count_mine(board_selection) && !flagged) {
       GameBoardDrawer::Mine(board_selection);
-      return false;
+      return {false, nullptr};
     }
 
     const auto already_exposed = game_state.exposed_test_and_set(board_selection);
 
     if (flagged)
     {
-      if (!is_mine && depth > 0)
-      {
-        return bad_flag_at(board_selection);
-      }
-      return true;
+      return {true, nullptr};
     }
+
+    static constexpr uint8_t already_exposed_unhide_count[] = { 1, 0 };
+    game_state.hidden_clear -= already_exposed_unhide_count[already_exposed];
 
     const auto mine_count = game_state.count_mines_around(board_selection);
     const auto flag_count = game_state.count_flags_around(board_selection);
-    if (flag_count > mine_count) {
-      return bad_around_selection(board_selection);
-    }
-
-    constexpr uint8_t already_exposed_unhide_count[] = { 1, 0 };
-    game_state.hidden_clear -= already_exposed_unhide_count[already_exposed];
 
     GameBoardDrawer::ShowCount(mine_count, board_selection);
 
-    bool is_bad = false;
-
-    if ((already_exposed && depth == 0 &&
-         flag_count == mine_count) ||
-        (mine_count == 0 && !already_exposed)) {
-
-      board_selection.X > 0 &&
-          (expose_recurse(board_selection.left(), depth + 1) || (is_bad = true));
-      board_selection.X < (game_columns - 1) &&
-          (expose_recurse(board_selection.right(), depth + 1) ||
-           (is_bad = true));
-
-      if (board_selection.Y > 0) {
-        (expose_recurse(board_selection.up(), depth + 1) || (is_bad = true));
-        board_selection.X > 0 &&
-            (expose_recurse(board_selection.up().left(), depth + 1) ||
-             (is_bad = true));
-
-        board_selection.X < (game_columns - 1) &&
-            (expose_recurse(board_selection.up().right(), depth + 1) ||
-             (is_bad = true));
-      }
-
-      if (board_selection.Y < (game_rows - 1)) {
-        board_selection.X > 0 &&
-            (expose_recurse(board_selection.down().left(), depth + 1) ||
-             (is_bad = true));
-
-        expose_recurse(board_selection.down(), depth + 1) || (is_bad = true);
-        board_selection.X < (game_columns - 1) &&
-            (expose_recurse(board_selection.down().right(), depth + 1) ||
-             (is_bad = true));
-      }
+    if (mine_count == 0 || (already_exposed && flag_count == mine_count)) {
+      front_expose_buffer->clear();
+      back_expose_buffer->clear();
+      append_back_expose_buffer(board_selection);
+      swap_expose_buffers();
+      return {true, &expose_must_continue};
     }
 
-    return !is_bad;
+    return {true, nullptr};
   }
 
   struct ClockUpdater {
@@ -888,14 +1054,36 @@ void clear_screen() {
     // to expose on fire-up.
     static bool suppress_expose = false;
 
+    // "expose" means we are figuring out which tiles need to be automatically
+    // opened up because there are no mines around them. Figuring out which
+    // ones are like this can take a long time, so we split the operation up 
+    // into a sequence of function calls that expose only a few tiles per frame.
+    // Each of these function object pointers is stored in game_state.expose_continuation
+    // for the current frame.
+    if (game_state.expose_continuation)
+    {
+      const auto [is_ok, next_expose] = (*game_state.expose_continuation)();
+      game_state.expose_continuation = next_expose;
+
+      if (!is_ok) {
+        game_state.time_running = false;
+        return &mode_dead;
+      }
+
+      suppress_expose = game_state.expose_continuation != nullptr;
+    }
+
     // on space bar released...
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
       if (suppress_expose) {
         suppress_expose = false;
-      } else {
-        if (!expose_recurse(current_selected, 0))
-        {
+      }
+      else {
+        const auto [is_ok, next_expose] = expose_recurse(current_selected, 0);
+        game_state.expose_continuation = next_expose;
+
+        if (!is_ok) {
           game_state.time_running = false;
           return &mode_dead;
         }
@@ -1010,7 +1198,7 @@ void clear_screen() {
     };
 
     static constexpr DifficultySettings DIFFICULTY_PRESETS[] = {
-        {9, 9, 10}, {16,16,40}, {16,30,99}
+        {9, 9, 10}, {16,16,10}, {16,30,99}
     };
 
     switch (fire_button_events) {
