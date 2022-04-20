@@ -160,20 +160,36 @@ void clear_screen() {
 
   struct TilePoint {
 
-    TilePoint left(std::uint8_t distance = 1) const {
+    TilePoint left(std::uint8_t distance) const {
       return TilePoint{static_cast<std::uint8_t>(X - distance), Y};
     }
 
-    TilePoint right(std::uint8_t distance = 1) const {
+    TilePoint left() const {
+      return TilePoint{static_cast<std::uint8_t>(X - 1), Y};
+    }
+
+    TilePoint right(std::uint8_t distance) const {
       return TilePoint{static_cast<std::uint8_t>(X + distance), Y};
     }
 
-    TilePoint up(std::uint8_t distance = 1) const {
+    TilePoint right() const {
+      return TilePoint{static_cast<std::uint8_t>(X + 1), Y};
+    }
+
+    TilePoint up(std::uint8_t distance) const {
       return TilePoint{X, static_cast<std::uint8_t>(Y - distance)};
     }
 
-    TilePoint down(std::uint8_t distance = 1) const {
+    TilePoint up() const {
+      return TilePoint{X, static_cast<std::uint8_t>(Y - 1)};
+    }
+
+    TilePoint down(std::uint8_t distance) const {
       return TilePoint{X, static_cast<std::uint8_t>(Y + distance)};
+    }
+
+    TilePoint down() const {
+      return TilePoint{X, static_cast<std::uint8_t>(Y + 1)};
     }
 
     bool operator==(const TilePoint & rhs) const {
@@ -182,6 +198,36 @@ void clear_screen() {
 
     std::uint8_t X;
     std::uint8_t Y;
+  };
+
+  struct OptionalTilePoint : public TilePoint {
+
+    OptionalTilePoint() = default;
+    OptionalTilePoint(TilePoint p) : TilePoint{p}, is_valid{true} {}
+
+    OptionalTilePoint left() const {
+      return is_valid && X > 0 ? OptionalTilePoint{TilePoint::left()}
+                               : OptionalTilePoint{};
+    }
+
+    OptionalTilePoint right() const {
+      return is_valid && X < (game_columns - 1)
+                 ? OptionalTilePoint{TilePoint::right()}
+                 : OptionalTilePoint{};
+    }
+
+    OptionalTilePoint up() const {
+      return is_valid && Y > 0 ? OptionalTilePoint{TilePoint::up()}
+                               : OptionalTilePoint{};
+    }
+
+    OptionalTilePoint down() const {
+      return is_valid && Y < (game_rows - 1)
+                 ? OptionalTilePoint{TilePoint::down()}
+                 : OptionalTilePoint{};
+    }
+
+    bool is_valid = false;
   };
 
   constexpr TilePoint board_pos{1, 1};
@@ -477,6 +523,15 @@ void clear_screen() {
       return state_bits[selection.Y].test(selection.X);
     }
 
+    static std::uint8_t count_bits(const BitVector &state_bits,
+                                   const OptionalTilePoint & selection) {
+      if (!selection.is_valid) {
+        return 0;
+      }
+
+      return state_bits[selection.Y].test(selection.X);
+    }
+
     std::uint8_t count_mine(TilePoint selection) const {
       return count_bits(mine_bits, selection);
     }
@@ -492,30 +547,17 @@ void clear_screen() {
       return false;
     }
 
-    static std::uint8_t count_around(const BitVector & state_bits, TilePoint selection) {
-      const bool has_column_left = (selection.X > 0);
-      const bool has_column_right = (selection.X < (game_columns - 1));
-      return (selection.Y > 0
-                  ? (count_bits(state_bits, selection.up()) +
-                     (has_column_left
-                          ? count_bits(state_bits, selection.up().left())
-                          : 0) +
-                     (has_column_right
-                          ? count_bits(state_bits, selection.up().right())
-                          : 0))
-                  : 0) +
-             (has_column_left ? count_bits(state_bits, selection.left()) : 0) +
-             (has_column_right ? count_bits(state_bits, selection.right())
-                               : 0) +
-             (selection.Y < (game_rows - 1)
-                  ? (count_bits(state_bits, selection.down()) +
-                     (has_column_left
-                          ? count_bits(state_bits, selection.down().left())
-                          : 0) +
-                     (has_column_right
-                          ? count_bits(state_bits, selection.down().right())
-                          : 0))
-                  : 0);
+    static std::uint8_t count_around(const BitVector & state_bits, OptionalTilePoint selection) {
+      const auto tile_up = selection.up();
+      const auto tile_down = selection.down();
+      return count_bits(state_bits, tile_up) +
+             count_bits(state_bits, tile_up.left()) +
+             count_bits(state_bits, tile_up.right()) +
+             count_bits(state_bits, selection.left()) +
+             count_bits(state_bits, selection.right()) +
+             count_bits(state_bits, tile_down) +
+             count_bits(state_bits, tile_down.left()) +
+             count_bits(state_bits, tile_down.right());
     }
 
     std::uint8_t count_mines_around(TilePoint selection) {
@@ -613,30 +655,6 @@ void clear_screen() {
   const ExposeResultContinuation * ExposeResultDelay::m_next = nullptr;
 
   ExposeResultDelay expose_delay;
-
-  struct OptionalTilePoint : public TilePoint {
-
-    OptionalTilePoint() = default;
-    OptionalTilePoint(TilePoint p) : TilePoint{p}, is_valid{true} {}
-
-    OptionalTilePoint left() const {
-      return is_valid && X > 0 ? OptionalTilePoint{TilePoint::left()} : OptionalTilePoint{};
-    }
-
-    OptionalTilePoint right() const {
-      return is_valid && X < (game_columns - 1) ? OptionalTilePoint{TilePoint::right()} : OptionalTilePoint{};
-    }
-
-    OptionalTilePoint up() const {
-      return is_valid && Y > 0 ? OptionalTilePoint{TilePoint::up()} : OptionalTilePoint{};
-    }
-
-    OptionalTilePoint down() const {
-      return is_valid && Y < (game_rows - 1) ? OptionalTilePoint{TilePoint::down()} : OptionalTilePoint{};
-    }
-
-    bool is_valid = false;
-  };
 
   OptionalTilePoint filter_already_exposed(const OptionalTilePoint & src) {
     return src.is_valid && !game_state.exposed_bits[src.Y].test(src.X) ? src : OptionalTilePoint{};
@@ -752,7 +770,7 @@ void clear_screen() {
 
       back_expose_buffer->clear();
 
-      constexpr std::uint8_t MAX_EXPOSE_PER_ITER = 1;
+      static constexpr std::uint8_t MAX_EXPOSE_PER_ITER = 1;
       std::uint8_t exposed = 0;
 
       while (!front_expose_buffer->empty()) {
@@ -782,8 +800,7 @@ void clear_screen() {
 
         const auto mine_count = game_state.count_mines_around(expose_target);
         if (game_state.count_flags_around(expose_target) > mine_count) {
-          const auto something_wrong = bad_around_selection(expose_target);
-          return {something_wrong, nullptr};
+          return {bad_around_selection(expose_target), nullptr};
         }
 
         GameBoardDrawer::ShowCount(mine_count, expose_target);
@@ -791,20 +808,17 @@ void clear_screen() {
 
         game_state.hidden_clear -= 1;
 
-        if (mine_count == 0)
-        {
+        if (mine_count == 0) {
           append_back_expose_buffer(expose_target);
           prev_exposed = expose_target;
         }
 
         // Early exit by limiting the max number of "expose" tiles that change in the current
         // invocation of this call.
-        if (exposed == MAX_EXPOSE_PER_ITER)
-        {
+        if (exposed == MAX_EXPOSE_PER_ITER) {
           // copy the un-traversed region of the front buffer to the back
           // buffer, so it will be examined at some point in the future.
-          for (const auto & unexposed_tile : *front_expose_buffer)
-          {
+          for (const auto &unexposed_tile : *front_expose_buffer) {
             back_expose_buffer->push_back(unexposed_tile);
           }
 
@@ -1094,7 +1108,7 @@ void clear_screen() {
 
     // Keeps track of cases where we are clearing a flag and don't want
     // to expose on fire-up.
-    static bool suppress_expose = false;
+    bool suppress_expose = false;
 
     // "expose" means we are figuring out which tiles need to be automatically
     // opened up because there are no mines around them. Figuring out which
