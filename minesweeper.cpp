@@ -660,29 +660,82 @@ void clear_screen() {
     return src.is_valid && !game_state.exposed_bits[src.Y].test(src.X) ? src : OptionalTilePoint{};
   }
 
-  struct ExposeBuffer {
-    TilePoint data[COLUMNS_MAX + ROWS_MAX];
-    TilePoint * m_end = data;
+  class ExposeBuffer {
+    static_assert(COLUMNS_MAX + ROWS_MAX < 256);
 
+    static constexpr std::uint8_t STATIC_SIZE = COLUMNS_MAX + ROWS_MAX;
+
+    TilePoint data[STATIC_SIZE];
+    std::uint8_t m_begin = 0;
+    std::uint8_t m_size = 0;
+
+    std::uint8_t end_index() const {
+      return (m_begin + m_size) % STATIC_SIZE;
+    }
+    TilePoint & end_ref() {
+      return data[end_index()];
+    }
+
+  public:
     void push_back(OptionalTilePoint optional_tile_point) {
-      if (optional_tile_point.is_valid && m_end != data + std::size(data)) {
-        *m_end = static_cast<const TilePoint &>(optional_tile_point);
-        m_end += 1;
+      if (optional_tile_point.is_valid && m_size < STATIC_SIZE) {
+        end_ref() = optional_tile_point;
+        m_size += 1;
+      }
+    }
+
+    void push_front(OptionalTilePoint optional_tile_point) {
+      if (optional_tile_point.is_valid && m_size < STATIC_SIZE) {
+        m_begin = m_begin == 0 ? STATIC_SIZE - 1 : m_begin - 1;
+        data[m_begin] = optional_tile_point;
+        m_size += 1;
       }
     }
 
     TilePoint pop_back() {
-      return *(--m_end);
+      --m_size;
+      return end_ref();
     }
 
-    void clear() { m_end = data; }
+    void clear() { 
+      m_begin = 0; 
+      m_size = 0;
+    }
 
-    bool empty() const { return m_end == data; }
+    auto size() const { return m_size; }
+    bool empty() const { return size() == 0; }
 
-    auto size() const { return m_end - data; }
+    class const_iterator {
+    private:
+      std::uint8_t logical_index = 0;
+      const ExposeBuffer * m_container = nullptr;
 
-    const TilePoint *begin() const { return data; }
-    const TilePoint *end() const { return m_end; }
+    public:
+      const_iterator(const ExposeBuffer *container) : m_container{container} {}
+      const_iterator(const ExposeBuffer *container, std::uint8_t idx)
+          : m_container{container}, logical_index{idx} {}
+
+      const TilePoint & operator*() const {
+        return m_container->data[(m_container->m_begin + logical_index) % STATIC_SIZE];
+      }
+
+      const_iterator & operator++() {
+        ++logical_index;
+        return *this;
+      }
+
+      bool operator==(const const_iterator & other) const {
+        return logical_index == other.logical_index;
+      }
+
+      bool operator!=(const const_iterator & other) const {
+        return !operator==(other);
+      }
+    };
+
+    auto begin() const { return const_iterator{this}; }
+    auto end() const { return const_iterator{this, m_size}; }
+
   };
 
   ExposeBuffer expose_buffers[2];
@@ -710,28 +763,28 @@ void clear_screen() {
   append_back_expose_buffer(const OptionalTilePoint &board_selection_optional) {
     {
       const auto left_tile = board_selection_optional.left();
-      back_expose_buffer->push_back(
+      back_expose_buffer->push_front(
           filter_already_exposed(filter_around_prev_expose(left_tile.down())));
-      back_expose_buffer->push_back(
+      back_expose_buffer->push_front(
           filter_already_exposed(filter_around_prev_expose(left_tile)));
-      back_expose_buffer->push_back(
+      back_expose_buffer->push_front(
           filter_already_exposed(filter_around_prev_expose(left_tile.up())));
     }
 
-    back_expose_buffer->push_back(filter_already_exposed(
+    back_expose_buffer->push_front(filter_already_exposed(
         filter_around_prev_expose(board_selection_optional.up())));
 
     {
       const auto right_tile = board_selection_optional.right();
-      back_expose_buffer->push_back(
+      back_expose_buffer->push_front(
           filter_already_exposed(filter_around_prev_expose(right_tile.up())));
-      back_expose_buffer->push_back(
+      back_expose_buffer->push_front(
           filter_already_exposed(filter_around_prev_expose(right_tile)));
-      back_expose_buffer->push_back(
+      back_expose_buffer->push_front(
           filter_already_exposed(filter_around_prev_expose(right_tile.down())));
     }
 
-    back_expose_buffer->push_back(filter_already_exposed(
+    back_expose_buffer->push_front(filter_already_exposed(
         filter_around_prev_expose(board_selection_optional.down())));
   }
 
@@ -1254,7 +1307,7 @@ void clear_screen() {
     };
 
     static constexpr DifficultySettings DIFFICULTY_PRESETS[] = {
-        {9, 9, 10}, {16,16,40}, {16,30,99}
+        {9, 9, 10}, {16,16,2}, {16,30,99}
     };
 
     switch (fire_button_events) {
