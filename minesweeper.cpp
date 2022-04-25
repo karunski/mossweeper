@@ -738,9 +738,7 @@ void clear_screen() {
 
   };
 
-  ExposeBuffer expose_buffers[2];
-  ExposeBuffer *back_expose_buffer = &expose_buffers[0];
-  ExposeBuffer *front_expose_buffer = &expose_buffers[1];
+  ExposeBuffer expose_buffer;
   TilePoint prev_exposed;
 
   OptionalTilePoint filter_around_prev_expose(const OptionalTilePoint &src) {
@@ -753,38 +751,32 @@ void clear_screen() {
                : OptionalTilePoint{};
   }
 
-  void swap_expose_buffers() {
-    const auto temp = back_expose_buffer;
-    back_expose_buffer = front_expose_buffer;
-    front_expose_buffer = temp;
-  }
-
   void
   append_back_expose_buffer(const OptionalTilePoint &board_selection_optional) {
     {
       const auto left_tile = board_selection_optional.left();
-      back_expose_buffer->push_front(
+      expose_buffer.push_front(
           filter_already_exposed(filter_around_prev_expose(left_tile.down())));
-      back_expose_buffer->push_front(
+      expose_buffer.push_front(
           filter_already_exposed(filter_around_prev_expose(left_tile)));
-      back_expose_buffer->push_front(
+      expose_buffer.push_front(
           filter_already_exposed(filter_around_prev_expose(left_tile.up())));
     }
 
-    back_expose_buffer->push_front(filter_already_exposed(
+    expose_buffer.push_front(filter_already_exposed(
         filter_around_prev_expose(board_selection_optional.up())));
 
     {
       const auto right_tile = board_selection_optional.right();
-      back_expose_buffer->push_front(
+      expose_buffer.push_front(
           filter_already_exposed(filter_around_prev_expose(right_tile.up())));
-      back_expose_buffer->push_front(
+      expose_buffer.push_front(
           filter_already_exposed(filter_around_prev_expose(right_tile)));
-      back_expose_buffer->push_front(
+      expose_buffer.push_front(
           filter_already_exposed(filter_around_prev_expose(right_tile.down())));
     }
 
-    back_expose_buffer->push_front(filter_already_exposed(
+    expose_buffer.push_front(filter_already_exposed(
         filter_around_prev_expose(board_selection_optional.down())));
   }
 
@@ -793,42 +785,34 @@ void clear_screen() {
     
     {
       const auto left_tile = board_selection_optional.left();
-      back_expose_buffer->push_back(
-          filter_already_exposed(left_tile.down()));
-      back_expose_buffer->push_back(
-          filter_already_exposed(left_tile));
-      back_expose_buffer->push_back(
-          filter_already_exposed(left_tile.up()));
+      expose_buffer.push_back(filter_already_exposed(left_tile.down()));
+      expose_buffer.push_back(filter_already_exposed(left_tile));
+      expose_buffer.push_back(filter_already_exposed(left_tile.up()));
     }
 
-    back_expose_buffer->push_back(filter_already_exposed(
-        board_selection_optional.up()));
+    expose_buffer.push_back(
+        filter_already_exposed(board_selection_optional.up()));
 
     {
       const auto right_tile = board_selection_optional.right();
-      back_expose_buffer->push_back(
-          filter_already_exposed(right_tile.up()));
-      back_expose_buffer->push_back(
-          filter_already_exposed(right_tile));
-      back_expose_buffer->push_back(filter_already_exposed(
-          right_tile.down()));
+      expose_buffer.push_back(filter_already_exposed(right_tile.up()));
+      expose_buffer.push_back(filter_already_exposed(right_tile));
+      expose_buffer.push_back(filter_already_exposed(right_tile.down()));
     }
 
-    back_expose_buffer->push_back(filter_already_exposed(
-        board_selection_optional.down()));
+    expose_buffer.push_back(
+        filter_already_exposed(board_selection_optional.down()));
   }
 
   struct ExposeResultNext : public ExposeResultContinuation {
     expose_result operator()() const override {
 
-      back_expose_buffer->clear();
-
       static constexpr std::uint8_t MAX_EXPOSE_PER_ITER = 1;
       std::uint8_t exposed = 0;
 
-      while (!front_expose_buffer->empty()) {
+      while (!expose_buffer.empty()) {
 
-        const auto expose_target = front_expose_buffer->pop_back();
+        const auto expose_target = expose_buffer.pop_back();
         const auto flagged = game_state.is_flagged(expose_target);
 
         if (game_state.count_mine(expose_target) && !flagged) {
@@ -871,17 +855,15 @@ void clear_screen() {
         if (exposed == MAX_EXPOSE_PER_ITER) {
           // copy the un-traversed region of the front buffer to the back
           // buffer, so it will be examined at some point in the future.
-          for (const auto &unexposed_tile : *front_expose_buffer) {
-            back_expose_buffer->push_back(unexposed_tile);
-          }
+          // for (const auto &unexposed_tile : *front_expose_buffer) {
+          //   back_expose_buffer->push_back(unexposed_tile);
+          // }
 
           break;
         }
       }
 
-      swap_expose_buffers();
-
-      return {true, front_expose_buffer->empty() ? nullptr : this};
+      return {true, expose_buffer.empty() ? nullptr : this};
     }
   };
 
@@ -916,11 +898,9 @@ void clear_screen() {
     GameBoardDrawer::ShowCount(mine_count, board_selection);
 
     if (mine_count == 0 || (already_exposed && flag_count == mine_count)) {
-      front_expose_buffer->clear();
-      back_expose_buffer->clear();
+      expose_buffer.clear();
       init_back_expose_buffer(board_selection);
       prev_exposed = board_selection;
-      swap_expose_buffers();
       return {true, &expose_must_continue};
     }
 
@@ -1307,7 +1287,7 @@ void clear_screen() {
     };
 
     static constexpr DifficultySettings DIFFICULTY_PRESETS[] = {
-        {9, 9, 10}, {16,16,2}, {16,30,99}
+        {9, 9, 10}, {16,16,40}, {16,30,3}
     };
 
     switch (fire_button_events) {
