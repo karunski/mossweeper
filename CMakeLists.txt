@@ -9,6 +9,7 @@ set_property(SOURCE minesweeper-gfx.S APPEND PROPERTY INCLUDE_DIRECTORIES ${CMAK
 add_executable(minesweeper
   minesweeper.cpp
   minesweeper-gfx.S
+  rand.h rand.cpp
 )
 
 set_property(SOURCE minesweeper-gfx.S

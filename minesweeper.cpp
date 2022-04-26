@@ -6,6 +6,7 @@
 #include <music_player.h>
 #include <pla.h>
 #include "find.h"
+#include "rand.h"
 
 extern "C" {
 extern c64::Sprite sprite_data_ram[32];
@@ -992,6 +993,21 @@ void clear_screen() {
 
   ScoreUpdate score_updater;
 
+  uint8_t get_non_zero_sid_random() {
+    for (;;) {
+      const auto randbits = c64::sid.oscillator_3;
+      if (randbits) {
+        return randbits;
+      }
+    }
+  }
+
+  void seed_rng() {
+    c64::sid.voices[2].set_frequency(0xFFFF);
+    c64::sid.voices[2].set_control(c64::SIDVoice::noise);
+    srand((get_non_zero_sid_random() << 8) | get_non_zero_sid_random());
+  }
+
   void reset() {
     GameBoardDrawer::DrawBoard();
 
@@ -1002,15 +1018,12 @@ void clear_screen() {
     static constexpr std::uint8_t cursor_frameskip = 1;
     static std::uint8_t cursor_current_frameskip = 0;
 
-    c64::sid.voices[2].set_frequency(0xFFFF);
-    c64::sid.voices[2].set_control(c64::SIDVoice::noise);
-
     game_state.reset();
 
     for (std::uint8_t mines_left = mines; mines_left;) {
-      const auto rownum = c64::sid.oscillator_3 % game_rows;
+      const auto rownum = static_cast<std::uint8_t>(rand() >> 8) % game_rows;
       auto &row = game_state.mine_bits[rownum];
-      const auto column = c64::sid.oscillator_3 % game_columns;
+      const auto column = static_cast<std::uint8_t>(rand() >> 8) % game_columns;
       if (!row.test(column)) {
         row.set(column);
         mines_left -= 1;
@@ -1075,9 +1088,13 @@ void clear_screen() {
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
 
     static TilePoint current_selected;
+    // Keeps track of cases where we are clearing a flag and don't want
+    // to expose on fire-up.
+    static bool suppress_expose;
   };
 
   TilePoint AppModeGame::current_selected{0, 0};
+  bool AppModeGame::suppress_expose = false;
 
   struct AppModeResetButton : public AppMode {
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
@@ -1138,10 +1155,6 @@ void clear_screen() {
   AppMode *
   AppModeGame::on_vsync(FireButtonEventFilter::Event fire_button_events,
                         key_scan_res direction_events) {
-
-    // Keeps track of cases where we are clearing a flag and don't want
-    // to expose on fire-up.
-    bool suppress_expose = false;
 
     // "expose" means we are figuring out which tiles need to be automatically
     // opened up because there are no mines around them. Figuring out which
@@ -1287,7 +1300,7 @@ void clear_screen() {
     };
 
     static constexpr DifficultySettings DIFFICULTY_PRESETS[] = {
-        {9, 9, 10}, {16,16,40}, {16,30,3}
+        {9, 9, 10}, {16,16,40}, {16,30,99}
     };
 
     switch (fire_button_events) {
@@ -1471,6 +1484,8 @@ int main()
 
   clear_screen();
   AppModeSelectDifficulty::draw();
+
+  seed_rng();
 
   c64::sid.clear();
   c64::sid.set_volume(c64::Nibble{15}, c64::SID::VolumeBits{});
