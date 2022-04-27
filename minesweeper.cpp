@@ -231,8 +231,6 @@ void clear_screen() {
     bool is_valid = false;
   };
 
-  constexpr TilePoint board_pos{1, 1};
-
   struct C64GameBoardTraits
   {
     using TileType = c64::ScreenCode;
@@ -291,6 +289,9 @@ void clear_screen() {
 
     static constexpr auto LetterA = TileType{64};
     static constexpr auto SelectArrow = TileType{32};
+
+    static constexpr std::uint8_t ScreenWidth = 40;
+    static constexpr std::uint8_t ScreenHeight = 25;
   };
 
   static_assert(C64GameBoardTraits::Happy.tiles[0][1] == c64::ScreenCode{3});
@@ -338,6 +339,15 @@ void clear_screen() {
       }
     }
 
+    static void CenterBoardOnScreen() {
+      board_pos.X = (GameBoardTraits::ScreenWidth - (game_columns + 2)) / 2;
+      board_pos.Y = (GameBoardTraits::ScreenHeight -
+                     (game_rows + GameBoardTraits::ScoreRows + 2)) /
+                    2;
+    }
+
+    static TilePoint board_pos;
+
   public:
     static void Draw000(std::uint8_t x_off, std::uint16_t val) {
       DrawMetaTile(GameBoardTraits::ScoreDigits[val / 100], x_off,
@@ -353,6 +363,12 @@ void clear_screen() {
     static TilePoint SelectionToTilePosition(TilePoint game_selection) {
       return {static_cast<std::uint8_t>(board_pos.X + 1 + game_selection.X),
               static_cast<std::uint8_t>(board_pos.Y + 1 + GameBoardTraits::ScoreRows + game_selection.Y)};
+    }
+
+    static void SetGameSize(std::uint8_t rows, std::uint8_t columns) {
+      game_rows = rows;
+      game_columns = columns;
+      CenterBoardOnScreen();
     }
 
     using Traits = GameBoardTraits;
@@ -486,6 +502,9 @@ void clear_screen() {
       }
     }
   };
+
+  template <class GameBoardTraits>
+  TilePoint GameBoardDraw<GameBoardTraits>::board_pos{0, 0};
 
   struct RowBits {
     std::byte m_bits[(COLUMNS_MAX >> 3) + static_cast<bool>(COLUMNS_MAX & 0x7)];
@@ -1305,8 +1324,8 @@ void clear_screen() {
 
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
-      game_rows = DIFFICULTY_PRESETS[difficulty].m_rows;
-      game_columns = DIFFICULTY_PRESETS[difficulty].m_columns;
+      GameBoardDrawer::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
+                                   DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
       game_state.hidden_clear = DIFFICULTY_PRESETS[difficulty].m_hidden_clear;
       clear_screen();
