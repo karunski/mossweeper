@@ -607,6 +607,7 @@ void clear_screen() {
       memset(exposed_bits, 0, sizeof(exposed_bits));
       memset(flag_bits, 0, sizeof(flag_bits));
       expose_continuation = nullptr;
+      hidden_clear = (game_rows * game_columns) - mines;
     }
 
   };
@@ -1308,14 +1309,10 @@ void clear_screen() {
       std::uint8_t m_rows;
       std::uint8_t m_columns;
       std::uint8_t m_mines;
-      std::uint16_t m_hidden_clear;
 
       constexpr DifficultySettings(std::uint8_t rows, std::uint8_t columns,
                                    std::uint8_t mines)
-          : m_rows{rows}, m_columns{columns}, m_mines{mines},
-            m_hidden_clear{static_cast<uint16_t>(rows) *
-                               static_cast<uint16_t>(columns) -
-                           static_cast<uint16_t>(mines)} {}
+          : m_rows{rows}, m_columns{columns}, m_mines{mines} {}
     };
 
     static constexpr DifficultySettings DIFFICULTY_PRESETS[] = {
@@ -1327,7 +1324,6 @@ void clear_screen() {
       GameBoardDrawer::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
                                    DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
-      game_state.hidden_clear = DIFFICULTY_PRESETS[difficulty].m_hidden_clear;
       clear_screen();
       reset();
       return game_field.init(); 
