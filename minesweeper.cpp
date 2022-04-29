@@ -360,7 +360,7 @@ void clear_screen() {
                    board_pos.Y + 1);
     }
 
-    static TilePoint SelectionToTilePosition(TilePoint game_selection) {
+    static TilePoint SelectionToTilePosition(const TilePoint & game_selection) {
       return {static_cast<std::uint8_t>(board_pos.X + 1 + game_selection.X),
               static_cast<std::uint8_t>(board_pos.Y + 1 + GameBoardTraits::ScoreRows + game_selection.Y)};
     }
@@ -426,33 +426,33 @@ void clear_screen() {
       DrawMetaTile(GameBoardTraits::Win, reset_button_x(), reset_button_y());
     }
 
-    static void ExposeTile(TilePoint tile)
+    static void ExposeTile(const TilePoint & tile)
     {
       GameBoardTraits::place(
           GameBoardTraits::ExposedSquare, SelectionToTilePosition(tile));
     }
 
-    static void Mine(TilePoint tile)
+    static void Mine(const TilePoint & tile)
     {
       GameBoardTraits::place(GameBoardTraits::Mine, SelectionToTilePosition(tile));
     }
 
-    static void Wrong(TilePoint tile) {
+    static void Wrong(const TilePoint & tile) {
       GameBoardTraits::place(GameBoardTraits::Wrong,
                              SelectionToTilePosition(tile));
     }
 
-    static void Flag(TilePoint tile)
+    static void Flag(const TilePoint & tile)
     {
       GameBoardTraits::place(GameBoardTraits::Flag, SelectionToTilePosition(tile));
     }
 
-    static void Hide(TilePoint tile)
+    static void Hide(const TilePoint & tile)
     {
       GameBoardTraits::place(GameBoardTraits::HiddenSquare, SelectionToTilePosition(tile));
     }
 
-    static std::uint8_t ShowCount(std::uint8_t count, TilePoint where)
+    static std::uint8_t ShowCount(std::uint8_t count, const TilePoint & where)
     {
       GameBoardTraits::place(GameBoardTraits::NumberMarker(count),
                              SelectionToTilePosition(where));
@@ -532,13 +532,13 @@ void clear_screen() {
     BitVector mine_bits;
     BitVector exposed_bits;
     BitVector flag_bits;
-    std::uint16_t mines_left : 7;
-    std::uint16_t hidden_clear : 9;
-    bool time_running : 1;
-    std::uint16_t timer: 15;
+    std::uint8_t mines_left;
+    std::uint16_t hidden_clear;
+    bool time_running;
+    std::uint16_t timer;
     const ExposeResultContinuation *expose_continuation;
 
-    static std::uint8_t count_bits(const BitVector & state_bits, TilePoint selection)
+    static std::uint8_t count_bits(const BitVector & state_bits, const TilePoint & selection)
     {
       return state_bits[selection.Y].test(selection.X);
     }
@@ -552,11 +552,11 @@ void clear_screen() {
       return state_bits[selection.Y].test(selection.X);
     }
 
-    std::uint8_t count_mine(TilePoint selection) const {
+    std::uint8_t count_mine(const TilePoint & selection) const {
       return count_bits(mine_bits, selection);
     }
 
-    bool exposed_test_and_set(TilePoint selection) {
+    bool exposed_test_and_set(const TilePoint & selection) {
       auto & rowbits = exposed_bits[selection.Y];
       if (rowbits.test(selection.X)) {
         return true;
@@ -567,7 +567,7 @@ void clear_screen() {
       return false;
     }
 
-    static std::uint8_t count_around(const BitVector & state_bits, OptionalTilePoint selection) {
+    static std::uint8_t count_around(const BitVector & state_bits, const OptionalTilePoint & selection) {
       const auto tile_up = selection.up();
       const auto tile_down = selection.down();
       return count_bits(state_bits, tile_up) +
@@ -580,23 +580,27 @@ void clear_screen() {
              count_bits(state_bits, tile_down.right());
     }
 
-    std::uint8_t count_mines_around(TilePoint selection) {
+    std::uint8_t count_mines_around(const TilePoint & selection) {
       return count_around(mine_bits, selection);
     }
 
-    std::uint8_t count_flags_around(TilePoint selection) {
+    std::uint8_t count_flags_around(const TilePoint & selection) {
       return count_around(flag_bits, selection);
     }
 
-    bool set_flag(TilePoint selection) {
+    bool set_flag(const TilePoint & selection) {
       auto & row = flag_bits[selection.Y];
       const bool is_setting_flag = !row.test(selection.X);
       mines_left += is_setting_flag ? -1 : 1;
       return row.set(selection.X, !row.test(selection.X));
     }
 
-    bool is_flagged(TilePoint selection) {
+    bool is_flagged(const TilePoint & selection) {
       return count_bits(flag_bits, selection);
+    }
+
+    bool is_exposed(const TilePoint & selection) {
+      return count_bits(exposed_bits, selection);
     }
 
     void reset() {
@@ -616,7 +620,7 @@ void clear_screen() {
 
   using GameBoardDrawer = GameBoardDraw<C64GameBoardTraits>;
 
-  bool bad_flag_at(TilePoint selection) {
+  bool bad_flag_at(const TilePoint & selection) {
     const auto flagged = game_state.is_flagged(selection);
     const auto is_mine = game_state.count_mine(selection);
     if (flagged && !is_mine) {
@@ -629,7 +633,7 @@ void clear_screen() {
     return true;
   }
 
-  bool bad_around_selection(TilePoint board_selection) {
+  bool bad_around_selection(const TilePoint & board_selection) {
     bool is_bad = false;
 
     if (board_selection.Y > 0) {
@@ -698,14 +702,14 @@ void clear_screen() {
     }
 
   public:
-    void push_back(OptionalTilePoint optional_tile_point) {
+    void push_back(const OptionalTilePoint & optional_tile_point) {
       if (optional_tile_point.is_valid && m_size < STATIC_SIZE) {
         end_ref() = optional_tile_point;
         m_size += 1;
       }
     }
 
-    void push_front(OptionalTilePoint optional_tile_point) {
+    void push_front(const OptionalTilePoint & optional_tile_point) {
       if (optional_tile_point.is_valid && m_size < STATIC_SIZE) {
         m_begin = m_begin == 0 ? STATIC_SIZE - 1 : m_begin - 1;
         data[m_begin] = optional_tile_point;
@@ -891,7 +895,7 @@ void clear_screen() {
   const ExposeResultNext expose_must_continue;
 
   expose_result
-  expose_recurse(TilePoint board_selection, std::uint8_t depth) {
+  expose_recurse(const TilePoint & board_selection, std::uint8_t depth) {
 
     const auto flagged = game_state.is_flagged(board_selection);
     if (game_state.count_mine(board_selection) && !flagged) {
@@ -899,12 +903,13 @@ void clear_screen() {
       return {false, nullptr};
     }
 
-    const auto already_exposed = game_state.exposed_test_and_set(board_selection);
-
     if (flagged)
     {
       return {true, nullptr};
     }
+
+    const auto already_exposed =
+        game_state.exposed_test_and_set(board_selection);
 
     static constexpr uint8_t already_exposed_unhide_count[] = { 1, 0 };
     game_state.hidden_clear -= already_exposed_unhide_count[already_exposed];
@@ -1214,13 +1219,15 @@ void clear_screen() {
       game_state.time_running = true;
       break;
     case FireButtonEventFilter::LONG_PRESS: {
-      const bool flag_is_set = game_state.set_flag(current_selected);
-      if (flag_is_set) {
-        c64::MusicPlayer::play(0, false, flag_sfx);
-        GameBoardDrawer::Flag(current_selected);
-      } else {
-        suppress_expose = true;
-        GameBoardDrawer::Hide(current_selected);
+      if (!game_state.is_exposed(current_selected)) {
+        if (game_state.set_flag(current_selected)) {
+          c64::MusicPlayer::play(0, false, flag_sfx);
+          GameBoardDrawer::Flag(current_selected);
+        }
+        else {
+          suppress_expose = true;
+          GameBoardDrawer::Hide(current_selected);
+        }
       }
     } break;
     case FireButtonEventFilter::PRESS:
