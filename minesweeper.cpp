@@ -1,31 +1,11 @@
-#include <c64.h>
-#include <stdio.h>
+#include "platform_switch.h"
 #include <string.h>
-#include <key_scan.h>
-#include <sid.h>
-#include <music_player.h>
-#include <pla.h>
+#include <cstdint>
 #include "find.h"
 #include "rand.h"
 
-extern "C" {
-extern c64::Sprite sprite_data_ram[32];
-extern c64::Sprite sprite_data_end;
-extern const std::byte minesweeper_gfx[2048];
-extern const c64::Sprite minesweeper_cursor[7];
-extern const c64::Sprite minesweeper_bg_sprites[1];
-extern const c64::ColorCode minesweeper_color[256];
-//extern std::byte char_data_ram[2048];
-}
+namespace {
 
-namespace{
-
-using ScreenMemoryAddresses =
-    c64::DisplayAddr<c64::CIA2::vic_bank::NO_3, c64::VicII::VIDEO_OFFSET_0000, c64::VicII::TEXT_0800>;
-c64::ScreenRAM &screen_ram = ScreenMemoryAddresses::screen;
-c64::CharRAM & char_data_ram = ScreenMemoryAddresses::chars;
-
-constexpr auto BLANK = c64::ScreenCode{1};
 constexpr std::uint8_t ROWS_MAX = 16;
 constexpr std::uint8_t COLUMNS_MAX = 30;
 
@@ -33,28 +13,15 @@ std::uint8_t game_rows = 0;
 std::uint8_t game_columns = 0;
 std::uint8_t mines = 0;
 
-void clear_screen() {
-  auto *screen_mem = screen_ram.data();
+struct key_scan_res {
+  bool space : 1;
+  bool w : 1;
+  bool a : 1;
+  bool s : 1;
+  bool d : 1;
+};
 
-  static auto CLEAR_COLOR = minesweeper_color[static_cast<size_t>(BLANK)];
-
-  for (unsigned i = 0; i < 1000; i += 1) {
-    screen_mem[i] = BLANK;
-  }
-
-  for (std::uint8_t i = 0; i < 8; i += 1) {
-    c64::vic_ii.set_sprite_pos(i, 0, 0);
-  }
-  }
-
-  struct key_scan_res {
-    bool space : 1;
-    bool w : 1;
-    bool a : 1;
-    bool s : 1;
-    bool d : 1;
-  };
-
+#ifdef PLATFORM_C64
   key_scan_res check_keys() {
     c64::JoyScanner joyscan;
 
@@ -137,13 +104,13 @@ void clear_screen() {
 
     void activate(std::uint8_t sprite_number, c64::ColorCode sprite_color) {
       active_number = sprite_number;
-      screen_ram.sprite_ptr(active_number) = sprite_data_ram[slot];
+      c64::screen_ram.sprite_ptr(active_number) = sprite_data_ram[slot];
       c64::vic_ii.sprite_color[active_number] =
           sprite_color;
     }
 
     void select_frame(std::uint8_t frame) {
-      screen_ram.sprite_ptr(active_number) =
+      c64::screen_ram.sprite_ptr(active_number) =
           sprite_data_ram[slot + frame];
     }
 
@@ -259,7 +226,7 @@ void clear_screen() {
     static constexpr auto Wrong = TileType{27};
 
     static void place(TileType Tile, std::uint8_t x, std::uint8_t y) {
-      screen_ram.at(x, y) = Tile;
+      c64::screen_ram.at(x, y) = Tile;
       c64::color_ram.at(x, y) = minesweeper_color[static_cast<uint8_t>(Tile)];
     }
 
@@ -1331,7 +1298,7 @@ void clear_screen() {
       GameBoardDrawer::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
                                    DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
-      clear_screen();
+      target::clear_screen();
       reset();
       return game_field.init(); 
       break;
@@ -1356,10 +1323,11 @@ void clear_screen() {
         break;
     }
     
-    GameBoardDrawer::Traits::place(BLANK, DifficultyToSelectionArrow[BEGINNER]);
-    GameBoardDrawer::Traits::place(BLANK,
+    GameBoardDrawer::Traits::place(target::graphics_traits::BLANK, DifficultyToSelectionArrow[BEGINNER]);
+    GameBoardDrawer::Traits::place(target::graphics_traits::BLANK,
                                    DifficultyToSelectionArrow[INTERMEDIATE]);
-    GameBoardDrawer::Traits::place(BLANK, DifficultyToSelectionArrow[EXPERT]);
+    GameBoardDrawer::Traits::place(target::graphics_traits::BLANK,
+                                   DifficultyToSelectionArrow[EXPERT]);
     GameBoardDrawer::Traits::place(GameBoardDrawer::Traits::SelectArrow,
                                    DifficultyToSelectionArrow[difficulty]);
 
@@ -1373,7 +1341,7 @@ void clear_screen() {
   AppMode * AppModeDead::on_vsync(FireButtonEventFilter::Event fire_button_events, key_scan_res) {
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
-      clear_screen();
+      target::clear_screen();
       difficulty_selection.draw();
       return &difficulty_selection;
       break;
@@ -1399,7 +1367,7 @@ void clear_screen() {
                                 key_scan_res) {
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
-      clear_screen();
+      target::clear_screen();
       difficulty_selection.draw();
       return &difficulty_selection;
       break;
@@ -1458,22 +1426,20 @@ void clear_screen() {
                 25},
       c64::Note{c64::SIDVoice::triangle, c64::Note::C_5, 5},
   };
-
+#endif
 } // namespace
 
 int main()
 {
-  if (&char_data_ram != reinterpret_cast<void *>(0xC800)) {
-    puts("WRONG CHAR MEMORY OFFSET");
-    return 1;
-  }
+  if (!target::startup_check()) { return 1; }
 
+#ifdef PLATFORM_C64
   clock_updater.frames_per_second = count_raster() > 263 ? 50 : 60;
 
   const auto current_mmap = c64::pla.get_cpu_lines();
 
-  c64::cia2.set_vic_bank(ScreenMemoryAddresses::vic_base_setting);
-  memcpy(char_data_ram.data, minesweeper_gfx, sizeof(minesweeper_gfx));
+  c64::cia2.set_vic_bank(c64::ScreenMemoryAddresses::vic_base_setting);
+  memcpy(c64::char_data_ram.data, minesweeper_gfx, sizeof(minesweeper_gfx));
 
   {
     const c64::ScopedInterruptDisable disable_interrupts;
@@ -1487,7 +1453,7 @@ int main()
     sprite_data_ram[SpriteBackground::slot] = minesweeper_bg_sprites[0];
   }
 
-  c64::vic_ii.setup_memory(ScreenMemoryAddresses::screen_setting, ScreenMemoryAddresses::char_data_setting);
+  c64::vic_ii.setup_memory(c64::ScreenMemoryAddresses::screen_setting, c64::ScreenMemoryAddresses::char_data_setting);
   c64::vic_ii.background_color[0] = c64::ColorCode::WHITE;
   c64::vic_ii.set_multi_color_mode(false);
 
@@ -1504,7 +1470,7 @@ int main()
 
   auto vsync_waiter = c64::get_vsync_wait();
 
-  clear_screen();
+  target::clear_screen();
   AppModeSelectDifficulty::draw();
 
   seed_rng();
@@ -1530,6 +1496,6 @@ int main()
 
     c64::MusicPlayer::update();
   }
-
+#endif
   return 0;
 }
