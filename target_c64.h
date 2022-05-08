@@ -9,6 +9,7 @@
 #include <sid.h>
 #include <music_player.h>
 #include <pla.h>
+#include <cstdint>
 
 extern "C" {
 extern c64::Sprite sprite_data_ram[32];
@@ -53,6 +54,28 @@ struct target {
 
     for (std::uint8_t i = 0; i < 8; i += 1) {
       c64::vic_ii.set_sprite_pos(i, 0, 0);
+    }
+  }
+
+  static std::uint8_t frames_per_second() {
+    return count_raster() > 263 ? 50 : 60;
+  }
+
+  static void load_tile_set() {
+    c64::cia2.set_vic_bank(c64::ScreenMemoryAddresses::vic_base_setting);
+    memcpy(c64::char_data_ram.data, minesweeper_gfx, sizeof(minesweeper_gfx));
+  }
+
+private:
+  static std::uint16_t count_raster() {
+    static std::uint16_t count_raster;
+    for (count_raster = 0;;) {
+      const auto poll_raster = vic_ii.get_raster();
+      if (poll_raster >= count_raster) {
+        count_raster = poll_raster;
+      } else {
+        return count_raster;
+      }
     }
   }
 };

@@ -1,6 +1,7 @@
 #include "platform_switch.h"
 #include <string.h>
 #include <cstdint>
+#include <cstddef>
 #include "find.h"
 #include "rand.h"
 
@@ -126,6 +127,8 @@ struct key_scan_res {
   using C64Emoji = MetaTile<c64::ScreenCode, 2, 2>;
   using C64Digit = MetaTile<c64::ScreenCode, 1, 2>;
 
+#endif
+
   struct TilePoint {
 
     TilePoint left(std::uint8_t distance) const {
@@ -198,6 +201,7 @@ struct key_scan_res {
     bool is_valid = false;
   };
 
+#ifdef PLATFORM_C64
   struct C64GameBoardTraits
   {
     using TileType = c64::ScreenCode;
@@ -473,6 +477,8 @@ struct key_scan_res {
   template <class GameBoardTraits>
   TilePoint GameBoardDraw<GameBoardTraits>::board_pos{0, 0};
 
+#endif 
+
   struct RowBits {
     std::byte m_bits[(COLUMNS_MAX >> 3) + static_cast<bool>(COLUMNS_MAX & 0x7)];
 
@@ -585,6 +591,7 @@ struct key_scan_res {
 
   static GameState game_state{};
 
+#ifdef PLATFORM_C64
   using GameBoardDrawer = GameBoardDraw<C64GameBoardTraits>;
 
   bool bad_flag_at(const TilePoint & selection) {
@@ -899,6 +906,7 @@ struct key_scan_res {
 
     return {true, nullptr};
   }
+#endif // C64
 
   struct ClockUpdater {
     std::uint8_t frames_per_second = 0;
@@ -909,13 +917,16 @@ struct key_scan_res {
         current_frames = 0;
       }
 
+#ifdef PLATFORM_C64
       GameBoardDrawer::DrawTime(game_state.timer);
+#endif
       return true;
     }
   };
 
   ClockUpdater clock_updater;
 
+#ifdef PLATFORM_C64
   class FireButtonEventFilter {
   public:
     FireButtonEventFilter() : pressed{false}, down_count{0} {}
@@ -1389,18 +1400,6 @@ struct key_scan_res {
     return this;
   }
 
-  std::uint16_t count_raster() {
-    static std::uint16_t count_raster;
-    for (count_raster = 0;;) {
-      const auto poll_raster = c64::vic_ii.get_raster();
-      if (poll_raster >= count_raster) {
-        count_raster = poll_raster;
-      } else {
-        return count_raster;
-      }
-    }
-  }
-
   constexpr c64::Note scale[] = {
       {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_4, 25},
       {c64::SIDVoice::triangle, c64::Note::C_4, 5},
@@ -1433,13 +1432,11 @@ int main()
 {
   if (!target::startup_check()) { return 1; }
 
+  clock_updater.frames_per_second = target::frames_per_second();
+  
+  target::load_tile_set();
+
 #ifdef PLATFORM_C64
-  clock_updater.frames_per_second = count_raster() > 263 ? 50 : 60;
-
-  const auto current_mmap = c64::pla.get_cpu_lines();
-
-  c64::cia2.set_vic_bank(c64::ScreenMemoryAddresses::vic_base_setting);
-  memcpy(c64::char_data_ram.data, minesweeper_gfx, sizeof(minesweeper_gfx));
 
   {
     const c64::ScopedInterruptDisable disable_interrupts;
