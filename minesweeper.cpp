@@ -996,21 +996,6 @@ struct key_scan_res {
 
   ScoreUpdate score_updater;
 
-  uint8_t get_non_zero_sid_random() {
-    for (;;) {
-      const auto randbits = c64::sid.oscillator_3;
-      if (randbits) {
-        return randbits;
-      }
-    }
-  }
-
-  void seed_rng() {
-    c64::sid.voices[2].set_frequency(0xFFFF);
-    c64::sid.voices[2].set_control(c64::SIDVoice::noise);
-    srand((get_non_zero_sid_random() << 8) | get_non_zero_sid_random());
-  }
-
   void reset() {
     GameBoardDrawer::DrawBoard();
 
@@ -1334,10 +1319,10 @@ struct key_scan_res {
         break;
     }
     
-    GameBoardDrawer::Traits::place(target::graphics_traits::BLANK, DifficultyToSelectionArrow[BEGINNER]);
-    GameBoardDrawer::Traits::place(target::graphics_traits::BLANK,
+    GameBoardDrawer::Traits::place(target::graphics::BLANK, DifficultyToSelectionArrow[BEGINNER]);
+    GameBoardDrawer::Traits::place(target::graphics::BLANK,
                                    DifficultyToSelectionArrow[INTERMEDIATE]);
-    GameBoardDrawer::Traits::place(target::graphics_traits::BLANK,
+    GameBoardDrawer::Traits::place(target::graphics::BLANK,
                                    DifficultyToSelectionArrow[EXPERT]);
     GameBoardDrawer::Traits::place(GameBoardDrawer::Traits::SelectArrow,
                                    DifficultyToSelectionArrow[difficulty]);
@@ -1450,8 +1435,17 @@ int main()
     sprite_data_ram[SpriteBackground::slot] = minesweeper_bg_sprites[0];
   }
 
-  c64::vic_ii.setup_memory(c64::ScreenMemoryAddresses::screen_setting, c64::ScreenMemoryAddresses::char_data_setting);
-  c64::vic_ii.background_color[0] = c64::ColorCode::WHITE;
+  c64::vic_ii.setup_memory(c64::ScreenMemoryAddresses::screen_setting,
+                           c64::ScreenMemoryAddresses::char_data_setting);
+#endif
+
+  auto vsync_waiter = target::get_vsync_wait();
+
+  vsync_waiter();
+  target::graphics::set_background_color<0>(target::graphics::WHITE);
+  target::clear_screen();
+
+#ifdef PLATFORM_C64
   c64::vic_ii.set_multi_color_mode(false);
 
   // cursor shall be sprite 0.
@@ -1465,24 +1459,31 @@ int main()
   sprite_background.data_priority(true);
   sprite_background.multicolor_enable(false);
 
-  auto vsync_waiter = c64::get_vsync_wait();
+#endif
 
-  target::clear_screen();
+
+#ifdef PLATFORM_C64
   AppModeSelectDifficulty::draw();
+#endif
 
-  seed_rng();
+  srand(target::seed_rng());
 
+#ifdef PLATFORM_C64
   c64::sid.clear();
   c64::sid.set_volume(c64::Nibble{15}, c64::SID::VolumeBits{});
   c64::sid.voices[0].set_attack_decay(c64::Nibble{0}, c64::Nibble{9});
   c64::sid.voices[0].set_sustain_release(c64::Nibble{15}, c64::Nibble{1});
   c64::sid.voices[1].set_attack_decay(c64::Nibble{0}, c64::Nibble{6});
   c64::sid.voices[1].set_sustain_release(c64::Nibble{0}, c64::Nibble{0});
+#endif
 
   while (true) {
 
+    rand();
+    
     vsync_waiter();
 
+#ifdef PLATFORM_C64
     static key_scan_res keys;
     keys = check_keys();
 
@@ -1492,7 +1493,8 @@ int main()
     game_state.time_running &&clock_updater();
 
     c64::MusicPlayer::update();
-  }
 #endif
+  }
+
   return 0;
 }

@@ -13,6 +13,8 @@ message(STATUS "Building for LLVM_MOS_PLATFORM ${LLVM_MOS_PLATFORM}")
 
 if (LLVM_MOS_PLATFORM STREQUAL C64)
   add_subdirectory(c64lib)
+elseif (LLVM_MOS_PLATFORM MATCHES NES)
+  add_subdirectory(neslib)
 endif()
 
 set_property(SOURCE minesweeper-gfx.S APPEND PROPERTY INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
@@ -43,6 +45,8 @@ set(TARGET_SUFFIX_NES_NROM_128 .nes)
 set_property(TARGET minesweeper PROPERTY SUFFIX ${TARGET_SUFFIX_${LLVM_MOS_PLATFORM}})
 
 set(TARGET_LINK_C64 c64lib)
+set(TARGET_LINK_NES_NROM_128 neslib)
 target_link_libraries(minesweeper ${TARGET_LINK_${LLVM_MOS_PLATFORM}})
 
 set_property(TARGET minesweeper PROPERTY CXX_STANDARD 17)
+set_property(TARGET minesweeper PROPERTY LINK_FLAGS -Wl,-Map=output.map)

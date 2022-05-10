@@ -31,9 +31,18 @@ ScreenRAM &screen_ram = ScreenMemoryAddresses::screen;
 
 struct target {
 
-  struct graphics_traits {
+  struct graphics {
+
+    using color_type = ColorCode;
+
     // Tile Identifier for a blank / white tile.
     static constexpr auto BLANK = ScreenCode{1};
+    static constexpr auto WHITE = c64::ColorCode::WHITE;
+
+    template<size_t BgColorIndex>
+    static void set_background_color(color_type color) {
+      c64::vic_ii.background_color[BgColorIndex] = color;
+    }
   };
 
   static bool startup_check() {
@@ -49,7 +58,7 @@ struct target {
     auto *screen_mem = screen_ram.data();
 
     for (unsigned i = 0; i < 1000; i += 1) {
-      screen_mem[i] = graphics_traits::BLANK;
+      screen_mem[i] = graphics::BLANK;
     }
 
     for (std::uint8_t i = 0; i < 8; i += 1) {
@@ -66,7 +75,25 @@ struct target {
     memcpy(c64::char_data_ram.data, minesweeper_gfx, sizeof(minesweeper_gfx));
   }
 
+  static auto get_vsync_wait() { return c64::get_vsync_wait(); }
+
+  static unsigned seed_rng() {
+    sid.voices[2].set_frequency(0xFFFF);
+    sid.voices[2].set_control(SIDVoice::noise);
+    return (get_non_zero_sid_random() << 8) | get_non_zero_sid_random();
+  }
+
 private:
+  
+  static uint8_t get_non_zero_sid_random() {
+    for (;;) {
+      const auto randbits = sid.oscillator_3;
+      if (randbits) {
+        return randbits;
+      }
+    }
+  }
+
   static std::uint16_t count_raster() {
     static std::uint16_t count_raster;
     for (count_raster = 0;;) {
