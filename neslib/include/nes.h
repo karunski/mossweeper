@@ -35,6 +35,7 @@ namespace nes {
     std::byte status() const volatile { return PPUSTATUS; }
 
     enum render_bits : std::uint8_t {
+      render_off = 0,
       enable_bg_column_0 = 0b00000010,
       enable_sprite_column_0 = 0b00000100,
       enable_bg = 0b00001000,
@@ -57,8 +58,11 @@ namespace nes {
 
     struct pointer {
       reference operator*() const { return reference {ptr}; }
+
       std::uint16_t ptr;
     };
+
+    template <class T> static void fill(pointer dest, T, size_t len);
 
     void set_ppu_address(pointer ptr) volatile { 
       (void)PPUSTATUS;
@@ -71,6 +75,7 @@ namespace nes {
     }
 
     static constexpr pointer PALETTE_BASE { 0x3F00 };
+    static constexpr pointer NAME_TABLE_0 { 0x2000 };
   };
 
   PPU::render_bits operator|(PPU::render_bits left, PPU::render_bits right) {
@@ -87,6 +92,19 @@ namespace nes {
     ppu.set_ppu_address(pointer{ptr});
     ppu.store_data(temp);
     return b;
+  }
+
+  template<class T>
+  void PPU::fill(pointer dest, T val, size_t len) {
+    static_assert(sizeof(T) == 1, "only byte width stores to PPUDATA");
+
+    std::byte temp;
+    memcpy(&temp, &val, 1);
+
+    ppu.set_ppu_address(dest);
+    for (size_t i = 0; i < len; i += 1) {
+      ppu.store_data(temp);
+    }
   }
 
   struct Color {

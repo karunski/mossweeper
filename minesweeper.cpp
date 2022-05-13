@@ -1445,9 +1445,10 @@ int main()
 
   auto vsync_waiter = target::get_vsync_wait();
 
-  vsync_waiter();
+  target::graphics::render_off();
   target::graphics::set_background_color<0>(target::graphics::WHITE);
   target::clear_screen();
+  target::graphics::enable_render_background();
 
 #ifdef PLATFORM_C64
   c64::vic_ii.set_multi_color_mode(false);

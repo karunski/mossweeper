@@ -37,11 +37,17 @@ struct target {
 
     // Tile Identifier for a blank / white tile.
     static constexpr auto BLANK = ScreenCode{1};
-    static constexpr auto WHITE = c64::ColorCode::WHITE;
+    static constexpr auto WHITE = color_type::WHITE;
 
     template<size_t BgColorIndex>
     static void set_background_color(color_type color) {
       c64::vic_ii.background_color[BgColorIndex] = color;
+    }
+
+    static void render_off() { }// TODO / not needed 
+
+    static void enable_render_background() {
+      // TODO / not needed
     }
   };
 

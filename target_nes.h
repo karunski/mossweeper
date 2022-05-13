@@ -13,11 +13,24 @@ namespace nes {
 
   struct target {
     struct graphics {
+      
       static constexpr Color WHITE{Color::Pale, Color::Gray};
+
+      enum class tile_type : std::uint8_t {
+      };
+
+      static constexpr tile_type BLANK = static_cast<tile_type>(0x1);
+
+      static void render_off() {
+        ppu.set_render_control(PPU::render_off);
+      }
+
+      static void enable_render_background() {
+        ppu.set_render_control(PPU::enable_bg);
+      }
 
       template <size_t BgColor> static void set_background_color(Color c) {
         static_assert(BgColor == 0, "Only one background color selection.");
-        ppu.set_render_control(PPU::enable_bg);
         *PPU::PALETTE_BASE = c;
       }
     };
@@ -25,7 +38,7 @@ namespace nes {
     static bool startup_check() { return true; }
     
     static void clear_screen() {
-      // TODO
+      PPU::fill(PPU::NAME_TABLE_0, graphics::BLANK, 960);
     }
 
     static std::uint8_t frames_per_second() { return 60; } // TODO... support PAL
