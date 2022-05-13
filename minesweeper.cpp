@@ -1413,6 +1413,10 @@ struct key_scan_res {
 #endif
 } // namespace
 
+// [[gnu::used, gnu::retain, gnu::section(".chr_rom")]]
+// const uint8_t tile_data[8] = {
+//     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa};
+
 int main()
 {
   if (!target::startup_check()) { return 1; }

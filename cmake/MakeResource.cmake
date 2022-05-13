@@ -1,0 +1,16 @@
+
+file(READ ${INPUT} HEX_DATA HEX)
+
+file(WRITE ${OUTPUT} "${SYMBOL_NAME}:\n")
+
+string(LENGTH ${HEX_DATA} DATA_LENGTH_HEX)
+math(EXPR DATA_RANGE_STOP "${DATA_LENGTH_HEX}-2")
+
+set (ASM_STRING "")
+
+foreach (INPUT_INDEX RANGE 0 ${DATA_RANGE_STOP} 2)
+  string(SUBSTRING ${HEX_DATA} ${INPUT_INDEX} 2 HEX_BYTE)
+  string(APPEND ASM_STRING ".byte \$${HEX_BYTE}\n")
+endforeach()
+
+file(WRITE ${OUTPUT} "${SYMBOL_NAME}:\n${ASM_STRING}")
