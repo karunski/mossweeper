@@ -41,6 +41,7 @@ set(TARGET_SOURCES_NES_NROM_128
 add_executable(minesweeper
   minesweeper.cpp
   rand.h rand.cpp
+  tile_model.h
   platform_switch.h
   ${TARGET_SOURCES_${LLVM_MOS_PLATFORM}}
 )

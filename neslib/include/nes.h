@@ -74,6 +74,11 @@ namespace nes {
       PPUDATA = b;
     }
 
+    void set_scroll(std::uint8_t x, std::uint8_t y) volatile {
+      PPUSCROLL = static_cast<std::byte>(x);
+      PPUSCROLL = static_cast<std::byte>(y);
+    }
+
     static constexpr pointer PALETTE_BASE { 0x3F00 };
     static constexpr pointer NAME_TABLE_0 { 0x2000 };
   };
@@ -105,6 +110,10 @@ namespace nes {
     for (size_t i = 0; i < len; i += 1) {
       ppu.store_data(temp);
     }
+  }
+
+  PPU::pointer operator+(const PPU::pointer & ptr, int offset) {
+    return PPU::pointer{static_cast<uint16_t>(ptr.ptr + offset)};
   }
 
   struct Color {

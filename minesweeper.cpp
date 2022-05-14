@@ -4,6 +4,7 @@
 #include <cstddef>
 #include "find.h"
 #include "rand.h"
+#include "tile_model.h"
 
 namespace {
 
@@ -52,17 +53,6 @@ struct key_scan_res {
                         scanRow1.KEY_S() || (down && !shift),
                         scanRow2.KEY_D() || (right && !shift)};
   }
-
-  template<class TileType, std::uint8_t Width, std::uint8_t Height>
-  struct MetaTile
-  {
-    static constexpr std::uint8_t width = Width;
-    static constexpr std::uint8_t height = Height;
-
-    using RowType = TileType[Width];
-
-    const RowType tiles[Height];
-  };
 
   struct SpriteBase {
   public:
@@ -124,52 +114,10 @@ struct key_scan_res {
   using SpriteBackground = Sprite<7, 1>;
   SpriteBackground sprite_background;
 
-  using C64Emoji = MetaTile<c64::ScreenCode, 2, 2>;
-  using C64Digit = MetaTile<c64::ScreenCode, 1, 2>;
 
 #endif
 
-  struct TilePoint {
-
-    TilePoint left(std::uint8_t distance) const {
-      return TilePoint{static_cast<std::uint8_t>(X - distance), Y};
-    }
-
-    TilePoint left() const {
-      return TilePoint{static_cast<std::uint8_t>(X - 1), Y};
-    }
-
-    TilePoint right(std::uint8_t distance) const {
-      return TilePoint{static_cast<std::uint8_t>(X + distance), Y};
-    }
-
-    TilePoint right() const {
-      return TilePoint{static_cast<std::uint8_t>(X + 1), Y};
-    }
-
-    TilePoint up(std::uint8_t distance) const {
-      return TilePoint{X, static_cast<std::uint8_t>(Y - distance)};
-    }
-
-    TilePoint up() const {
-      return TilePoint{X, static_cast<std::uint8_t>(Y - 1)};
-    }
-
-    TilePoint down(std::uint8_t distance) const {
-      return TilePoint{X, static_cast<std::uint8_t>(Y + distance)};
-    }
-
-    TilePoint down() const {
-      return TilePoint{X, static_cast<std::uint8_t>(Y + 1)};
-    }
-
-    bool operator==(const TilePoint & rhs) const {
-      return X == rhs.X && Y == rhs.Y;
-    }
-
-    std::uint8_t X;
-    std::uint8_t Y;
-  };
+  
 
   struct OptionalTilePoint : public TilePoint {
 
@@ -201,77 +149,10 @@ struct key_scan_res {
     bool is_valid = false;
   };
 
-#ifdef PLATFORM_C64
-  struct C64GameBoardTraits
-  {
-    using TileType = c64::ScreenCode;
-    static constexpr auto TopLeft = TileType{8};
-    static constexpr auto TopRight = TileType{5};
-    static constexpr auto BottomLeft = TileType{39};
-    static constexpr auto BottomRight = TileType{36};
-    static constexpr auto TopBorder = TileType{4};
-    static constexpr auto RightBorder = TileType{37};
-    static constexpr auto BottomBorder = TileType{6};
-    static constexpr auto LeftBorder = TileType{7};
-    static constexpr auto ScoreRows = std::uint8_t{2};
-
-    static constexpr auto HiddenSquare = TileType{0};
-
-    // assume ExposedSquare doubles as '0' marker; and '1', '2', ... '8'
-    // are in the tiles following it.
-    static constexpr auto ExposedSquare = TileType{16};
-
-    static constexpr auto NumberMarker(std::uint8_t idx) {
-      return static_cast<TileType>(static_cast<std::uint8_t>(ExposedSquare) + idx);
-    }
-
-    static constexpr auto Mine = TileType{25};
-    static constexpr auto Flag = TileType{26};
-    static constexpr auto Wrong = TileType{27};
-
-    static void place(TileType Tile, std::uint8_t x, std::uint8_t y) {
-      c64::screen_ram.at(x, y) = Tile;
-      c64::color_ram.at(x, y) = minesweeper_color[static_cast<uint8_t>(Tile)];
-    }
-
-    static void place(TileType Tile, TilePoint tilePos)
-    {
-      place(Tile, tilePos.X, tilePos.Y);
-    }
-
-    static constexpr C64Emoji Happy = {
-        {{TileType{2}, TileType{3}}, {TileType{34}, TileType{35}}}};
-
-    static constexpr C64Emoji Caution = {
-        {{TileType{49}, TileType{50}}, {TileType{51}, TileType{52}}}};
-
-    static constexpr C64Emoji Dead = {
-        {{TileType{53}, TileType{54}}, {TileType{55}, TileType{56}}}};
-
-    static constexpr C64Emoji Win = {
-        {{TileType{57}, TileType{58}}, {TileType{34}, TileType{35}}}};
-
-    static constexpr C64Digit ScoreDigits[10] = {
-        {{TileType{15}, TileType{46}}}, {{TileType{9}, TileType{41}}},
-        {{TileType{10}, TileType{42}}}, {{TileType{10}, TileType{43}}},
-        {{TileType{11}, TileType{45}}}, {{TileType{12}, TileType{43}}},
-        {{TileType{12}, TileType{44}}}, {{TileType{13}, TileType{41}}},
-        {{TileType{14}, TileType{44}}}, {{TileType{14}, TileType{43}}}};
-
-    static constexpr auto LetterA = TileType{64};
-    static constexpr auto SelectArrow = TileType{32};
-
-    static constexpr std::uint8_t ScreenWidth = 40;
-    static constexpr std::uint8_t ScreenHeight = 25;
-  };
-
-  static_assert(C64GameBoardTraits::Happy.tiles[0][1] == c64::ScreenCode{3});
-  static_assert(C64GameBoardTraits::Happy.tiles[1][0] == c64::ScreenCode{34});
-
   template<class GameBoardTraits>
   class GameBoardDraw
   {
-    using TileType = typename GameBoardTraits::TileType;
+    using TileType = typename GameBoardTraits::tile_type;
 
     template<TileType LeftCorner, TileType Middle, TileType RightCorner>
     static void DrawBorderRow(std::uint8_t currentRow)
@@ -441,6 +322,7 @@ struct key_scan_res {
       return TopBoardLimit() + rows - 1;
     }
 
+#ifdef PLATFORM_C64
     static std::uint16_t tile_to_sprite_x(std::uint8_t tile_x) {
       return Cursor::sprite_x_offset + (unsigned{tile_x} << 3u);
     }
@@ -456,6 +338,7 @@ struct key_scan_res {
     static std::uint8_t selection_to_sprite_y(std::uint8_t tile_y) {
       return tile_to_sprite_y(board_pos.Y + TopBoardLimit() + tile_y);
     }
+#endif
 
     static std::uint8_t reset_button_x() {
       return board_pos.X + 1 + (game_columns / 2) - (GameBoardTraits::Happy.width / 2);
@@ -476,8 +359,6 @@ struct key_scan_res {
 
   template <class GameBoardTraits>
   TilePoint GameBoardDraw<GameBoardTraits>::board_pos{0, 0};
-
-#endif 
 
   struct RowBits {
     std::byte m_bits[(COLUMNS_MAX >> 3) + static_cast<bool>(COLUMNS_MAX & 0x7)];
@@ -591,8 +472,9 @@ struct key_scan_res {
 
   static GameState game_state{};
 
+  using GameBoardDrawer = GameBoardDraw<target::graphics>;
+
 #ifdef PLATFORM_C64
-  using GameBoardDrawer = GameBoardDraw<C64GameBoardTraits>;
 
   bool bad_flag_at(const TilePoint & selection) {
     const auto flagged = game_state.is_flagged(selection);
@@ -926,7 +808,6 @@ struct key_scan_res {
 
   ClockUpdater clock_updater;
 
-#ifdef PLATFORM_C64
   class FireButtonEventFilter {
   public:
     FireButtonEventFilter() : pressed{false}, down_count{0} {}
@@ -968,8 +849,9 @@ struct key_scan_res {
     std::uint8_t down_count : 7;
   };
 
+#ifdef PLATFORM_C64
   class CursorAnimateFunc {
-    public:
+  public:
     void operator()() {
       static constexpr std::uint8_t cursor_frameskip = 1;
       static std::uint8_t cursor_current_frameskip = 0;
@@ -1021,6 +903,7 @@ struct key_scan_res {
   }
 
   CursorAnimateFunc cursor_animator;
+#endif
 
   FireButtonEventFilter fire_button_handler;
 
@@ -1066,6 +949,8 @@ struct key_scan_res {
     virtual AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) = 0;
   };
 
+#ifdef PLATFORM_C64
+
   struct AppModeGame : public AppMode {
 
     AppMode * init() {
@@ -1087,6 +972,8 @@ struct key_scan_res {
   struct AppModeResetButton : public AppMode {
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
+
+#endif
 
   struct AppModeSelectDifficulty : public AppMode {
 
@@ -1112,6 +999,7 @@ struct key_scan_res {
 
   AppModeSelectDifficulty::Difficulty AppModeSelectDifficulty::difficulty = AppModeSelectDifficulty::BEGINNER;
 
+#ifdef PLATFORM_C64
   struct AppModeDead : public AppMode {
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
@@ -1269,6 +1157,7 @@ struct key_scan_res {
     
     return this;
   }
+#endif
 
   AppMode *AppModeSelectDifficulty::on_vsync(
       FireButtonEventFilter::Event fire_button_events,
@@ -1291,12 +1180,14 @@ struct key_scan_res {
 
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
+    #ifdef PLATFORM_C64
       GameBoardDrawer::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
                                    DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
       target::clear_screen();
       reset();
       return game_field.init(); 
+      #endif
       break;
     case FireButtonEventFilter::LONG_PRESS: 
     case FireButtonEventFilter::PRESS:
@@ -1319,6 +1210,7 @@ struct key_scan_res {
         break;
     }
     
+    #ifdef PLATFORM_C64
     GameBoardDrawer::Traits::place(target::graphics::BLANK, DifficultyToSelectionArrow[BEGINNER]);
     GameBoardDrawer::Traits::place(target::graphics::BLANK,
                                    DifficultyToSelectionArrow[INTERMEDIATE]);
@@ -1326,7 +1218,7 @@ struct key_scan_res {
                                    DifficultyToSelectionArrow[EXPERT]);
     GameBoardDrawer::Traits::place(GameBoardDrawer::Traits::SelectArrow,
                                    DifficultyToSelectionArrow[difficulty]);
-
+#endif
     return this;
   }
 
@@ -1334,6 +1226,7 @@ struct key_scan_res {
 
   AppMode *current_mode = &difficulty_selection;
 
+#ifdef PLATFORM_C64
   AppMode * AppModeDead::on_vsync(FireButtonEventFilter::Event fire_button_events, key_scan_res) {
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
@@ -1413,10 +1306,6 @@ struct key_scan_res {
 #endif
 } // namespace
 
-// [[gnu::used, gnu::retain, gnu::section(".chr_rom")]]
-// const uint8_t tile_data[8] = {
-//     0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa};
-
 int main()
 {
   if (!target::startup_check()) { return 1; }
@@ -1448,7 +1337,6 @@ int main()
   target::graphics::render_off();
   target::graphics::set_background_color<0>(target::graphics::WHITE);
   target::clear_screen();
-  target::graphics::enable_render_background();
 
 #ifdef PLATFORM_C64
   c64::vic_ii.set_multi_color_mode(false);
@@ -1466,10 +1354,9 @@ int main()
 
 #endif
 
-
-#ifdef PLATFORM_C64
   AppModeSelectDifficulty::draw();
-#endif
+  target::graphics::finish_rendering();
+  target::graphics::enable_render_background();
 
   srand(target::seed_rng());
 
@@ -1488,15 +1375,19 @@ int main()
     
     vsync_waiter();
 
-#ifdef PLATFORM_C64
+
     static key_scan_res keys;
+#ifdef PLATFORM_C64
     keys = check_keys();
+#else
+    keys = key_scan_res{};
+#endif
 
     current_mode = current_mode->on_vsync(fire_button_handler(keys.space),
                                           direction_event_filter(keys));
 
-    game_state.time_running &&clock_updater();
-
+    game_state.time_running && clock_updater();
+#ifdef PLATFORM_C64
     c64::MusicPlayer::update();
 #endif
   }

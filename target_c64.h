@@ -3,6 +3,8 @@
 #ifndef MINESWEEPER_TARGET_C64_H
 #define MINESWEEPER_TARGET_C64_H
 
+#include "tile_model.h"
+
 #include <c64.h>
 #include <stdio.h>
 #include <key_scan.h>
@@ -34,10 +36,66 @@ struct target {
   struct graphics {
 
     using color_type = ColorCode;
+    using tile_type = ScreenCode;
+    using TileType = tile_type;
+
+    using C64Emoji = MetaTile<ScreenCode, 2, 2>;
+    using C64Digit = MetaTile<ScreenCode, 1, 2>;
 
     // Tile Identifier for a blank / white tile.
     static constexpr auto BLANK = ScreenCode{1};
+    static constexpr auto TopLeft = ScreenCode{8};
+    static constexpr auto TopRight = ScreenCode{5};
+    static constexpr auto BottomLeft = ScreenCode{39};
+    static constexpr auto BottomRight = ScreenCode{36};
+    static constexpr auto TopBorder = ScreenCode{4};
+    static constexpr auto RightBorder = ScreenCode{37};
+    static constexpr auto BottomBorder = ScreenCode{6};
+    static constexpr auto LeftBorder = ScreenCode{7};
+    static constexpr auto HiddenSquare = ScreenCode{0};
+    static constexpr auto Mine = TileType{25};
+    static constexpr auto Flag = TileType{26};
+    static constexpr auto Wrong = TileType{27};
+    // assume ExposedSquare doubles as '0' marker; and '1', '2', ... '8'
+    // are in the tiles following it.
+    static constexpr auto ExposedSquare = TileType{16};
+    // Alphabet chars must follow alphabetically after LetterA
+    static constexpr auto LetterA = TileType{64};
+    static constexpr auto SelectArrow = TileType{32};
+
+    static constexpr auto ScoreRows = std::uint8_t{2};
+
+    static constexpr auto NumberMarker(std::uint8_t idx) {
+      return static_cast<TileType>(static_cast<std::uint8_t>(ExposedSquare) +
+                                   idx);
+    }
+
+    static constexpr C64Digit ScoreDigits[10] = {
+        {{TileType{15}, TileType{46}}}, {{TileType{9}, TileType{41}}},
+        {{TileType{10}, TileType{42}}}, {{TileType{10}, TileType{43}}},
+        {{TileType{11}, TileType{45}}}, {{TileType{12}, TileType{43}}},
+        {{TileType{12}, TileType{44}}}, {{TileType{13}, TileType{41}}},
+        {{TileType{14}, TileType{44}}}, {{TileType{14}, TileType{43}}}};
+
+    static constexpr C64Emoji Happy = {
+        {{TileType{2}, TileType{3}}, {TileType{34}, TileType{35}}}};
+
+    static constexpr C64Emoji Caution = {
+        {{TileType{49}, TileType{50}}, {TileType{51}, TileType{52}}}};
+
+    static constexpr C64Emoji Dead = {
+        {{TileType{53}, TileType{54}}, {TileType{55}, TileType{56}}}};
+
+    static constexpr C64Emoji Win = {
+        {{TileType{57}, TileType{58}}, {TileType{34}, TileType{35}}}};
+
+    static_assert(Happy.tiles[0][1] == c64::ScreenCode{3});
+    static_assert(Happy.tiles[1][0] == c64::ScreenCode{34});
+
     static constexpr auto WHITE = color_type::WHITE;
+
+    static constexpr std::uint8_t ScreenWidth = 40;
+    static constexpr std::uint8_t ScreenHeight = 25;
 
     template<size_t BgColorIndex>
     static void set_background_color(color_type color) {
@@ -49,7 +107,19 @@ struct target {
     static void enable_render_background() {
       // TODO / not needed
     }
+
+    static void finish_rendering() {}
+
+    static void place(ScreenCode Tile, std::uint8_t x, std::uint8_t y) {
+      c64::screen_ram.at(x, y) = Tile;
+      c64::color_ram.at(x, y) = minesweeper_color[static_cast<uint8_t>(Tile)];
+    }
+
+    static void place(ScreenCode Tile, TilePoint tilePos) {
+      place(Tile, tilePos.X, tilePos.Y);
+    }
   };
+
 
   static bool startup_check() {
     if (&char_data_ram != reinterpret_cast<void *>(0xC800)) {

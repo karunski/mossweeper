@@ -19,7 +19,11 @@ namespace nes {
       enum class tile_type : std::uint8_t {
       };
 
-      static constexpr tile_type BLANK = static_cast<tile_type>(0x1);
+      static constexpr auto BLANK = static_cast<tile_type>(0x1);
+      static constexpr auto LetterA = static_cast<tile_type>(0x40);
+
+      static constexpr std::uint8_t ScreenWidth = 32;
+      static constexpr std::uint8_t ScreenHeight = 30;
 
       static void render_off() {
         ppu.set_render_control(PPU::render_off);
@@ -33,12 +37,29 @@ namespace nes {
         static_assert(BgColor == 0, "Only one background color selection.");
         *PPU::PALETTE_BASE = c;
       }
+
+      static void place(tile_type Tile, std::uint8_t x, std::uint8_t y) {
+        *(PPU::NAME_TABLE_0 + (y*32 + x)) = Tile;
+      }
+
+      static void finish_rendering() {
+        ppu.set_ppu_address(PPU::NAME_TABLE_0);
+      }
+
+    private:
+
+      struct TileUpdate {
+        std::uint8_t t;
+        std::uint16_t nametable_offset;
+      };
+
     };
 
     static bool startup_check() { return true; }
     
     static void clear_screen() {
       PPU::fill(PPU::NAME_TABLE_0, graphics::BLANK, 960);
+      ppu.set_scroll(0, 0);
     }
 
     static std::uint8_t frames_per_second() { return 60; } // TODO... support PAL
