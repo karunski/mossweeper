@@ -57,4 +57,26 @@ struct TilePoint {
   std::uint8_t Y;
 };
 
+template <std::uint8_t... Is> struct index_sequence {};
+template <std::uint8_t N, std::uint8_t... Is>
+struct generate_index_sequence : generate_index_sequence<N - 1, N - 1, Is...> {
+};
+template <std::uint8_t... Is>
+struct generate_index_sequence<0, Is...> : index_sequence<Is...> {};
+
+template <class tile_type, std::uint8_t len> struct TilePattern {
+  tile_type m_data[len] ;
+};
+
+template <class tile_type, class transform, std::uint8_t len, std::uint8_t... indexes>
+constexpr auto transform_string_impl(const char (&str)[len],
+                                     const index_sequence<indexes...> &) {
+  return TilePattern<tile_type, len - 1> { transform::call(str[indexes])... };
+}
+
+template <class tile_type, class transform, std::uint8_t len>
+constexpr auto transform_string(const char (&str)[len]) {
+  return transform_string_impl<tile_type, transform, len>(str, generate_index_sequence<len - 1>{});
+}
+
 #endif

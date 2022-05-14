@@ -24,7 +24,7 @@ namespace nes {
 
       static constexpr std::uint8_t ScreenWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
-
+      
       static void render_off() {
         ppu.set_render_control(PPU::render_off);
       }
@@ -42,16 +42,37 @@ namespace nes {
         *(PPU::NAME_TABLE_0 + (y*32 + x)) = Tile;
       }
 
+      static void place(const tile_type *string, std::uint8_t len,
+                        std::uint8_t x, std::uint8_t y) {
+        auto & current_update = tile_string_updates[tile_string_updates_size];
+        current_update.data = string;
+        current_update.nametable_offset = y * 32 + x;
+        current_update.len = len;
+        tile_string_updates_size += 1;
+      }
+
       static void finish_rendering() {
+
+        for (std::uint8_t i = 0; i < tile_string_updates_size; i += 1) {
+          const auto & current_update = tile_string_updates[i];
+          PPU::copy(PPU::NAME_TABLE_0 + current_update.nametable_offset, current_update.data, current_update.len);
+        }
+
+        tile_string_updates_size = 0;
+
         ppu.set_ppu_address(PPU::NAME_TABLE_0);
       }
 
     private:
 
-      struct TileUpdate {
-        std::uint8_t t;
+      struct TileStringUpdate {
+        const tile_type *data;
         std::uint16_t nametable_offset;
+        std::uint8_t len;
       };
+
+      static TileStringUpdate tile_string_updates[5];
+      static std::uint8_t tile_string_updates_size;
 
     };
 
@@ -95,6 +116,9 @@ namespace nes {
       *PPU::PALETTE_BASE = ++color;
     }
   }
+
+  inline std::uint8_t target::graphics::tile_string_updates_size = 0;
+  inline target::graphics::TileStringUpdate target::graphics::tile_string_updates[5];
 }
 
 using target = nes::target;

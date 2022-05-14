@@ -346,14 +346,22 @@ struct key_scan_res {
 
     static std::uint8_t reset_button_y() { return board_pos.Y + 1; }
 
-    static void DrawString(const char * str, std::uint8_t x,
+    template<std::uint8_t len>
+    static void DrawString(const TilePattern<TileType, len> & pattern, std::uint8_t x,
                              std::uint8_t y) {
-      for (std::uint8_t i = 0; *(str+i); i += 1) {
-        GameBoardTraits::place(
-            static_cast<TileType>(static_cast<std::uint8_t>(GameBoardTraits::LetterA) +
-                     (*(str + i) - 'A')),
-            x + i, y);
-      }
+      GameBoardTraits::place(pattern.m_data, len, x, y);
+    }
+
+    struct tile_to_char {
+      static constexpr auto call(char c) {
+        return static_cast<TileType>(
+            static_cast<std::uint8_t>(GameBoardTraits::LetterA) + (c - 'A'));
+      };
+    };
+
+    template <uint8_t len>
+    static constexpr auto GenerateTileString(const char (&str)[len]) {
+      return transform_string<TileType, tile_to_char>(str);
     }
   };
 
@@ -978,10 +986,18 @@ struct key_scan_res {
   struct AppModeSelectDifficulty : public AppMode {
 
     static void draw() {
-      GameBoardDrawer::DrawString("SELECT DIFFICULTY ", 1, 3);
-      GameBoardDrawer::DrawString("BEGINNER", 5, 5);
-      GameBoardDrawer::DrawString("INTERMEDIATE", 5, 7);
-      GameBoardDrawer::DrawString("EXPERT", 5, 9);
+      static constexpr auto SELECT_DIFFICULTY =
+          GameBoardDrawer::GenerateTileString("SELECT DIFFICULTY ");
+      static constexpr auto BEGINNER = 
+          GameBoardDrawer::GenerateTileString("BEGINNER");
+      static constexpr auto INTERMEDIATE = 
+          GameBoardDrawer::GenerateTileString("INTERMEDIATE");
+      static constexpr auto EXPERT =
+          GameBoardDrawer::GenerateTileString("EXPERT");
+      GameBoardDrawer::DrawString(SELECT_DIFFICULTY, 1, 3);
+      GameBoardDrawer::DrawString(BEGINNER, 5, 5);
+      GameBoardDrawer::DrawString(INTERMEDIATE, 5, 7);
+      GameBoardDrawer::DrawString(EXPERT, 5, 9);
     }
 
     AppMode * on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
@@ -1374,7 +1390,7 @@ int main()
     rand();
     
     vsync_waiter();
-
+    target::graphics::finish_rendering();
 
     static key_scan_res keys;
 #ifdef PLATFORM_C64

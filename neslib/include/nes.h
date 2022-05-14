@@ -64,23 +64,23 @@ namespace nes {
 
     template <class T> static void fill(pointer dest, T, size_t len);
 
-    void set_ppu_address(pointer ptr) volatile { 
+    template <class T> static void copy(pointer dest, const T *src, std::uint8_t len);
+
+    void set_ppu_address(pointer ptr) volatile {
       (void)PPUSTATUS;
       PPUADDR = static_cast<std::byte>(ptr.ptr >> 8);
       PPUADDR = static_cast<std::byte>(ptr.ptr & 0xff);
     }
 
-    void store_data(std::byte b) volatile {
-      PPUDATA = b;
-    }
+    void store_data(std::byte b) volatile { PPUDATA = b; }
 
     void set_scroll(std::uint8_t x, std::uint8_t y) volatile {
       PPUSCROLL = static_cast<std::byte>(x);
       PPUSCROLL = static_cast<std::byte>(y);
     }
 
-    static constexpr pointer PALETTE_BASE { 0x3F00 };
-    static constexpr pointer NAME_TABLE_0 { 0x2000 };
+    static constexpr pointer PALETTE_BASE{0x3F00};
+    static constexpr pointer NAME_TABLE_0{0x2000};
   };
 
   PPU::render_bits operator|(PPU::render_bits left, PPU::render_bits right) {
@@ -108,6 +108,18 @@ namespace nes {
 
     ppu.set_ppu_address(dest);
     for (size_t i = 0; i < len; i += 1) {
+      ppu.store_data(temp);
+    }
+  }
+
+  template<class T>
+  void PPU::copy(pointer dest, const T * src, std::uint8_t len) {
+    static_assert(sizeof(T) == 1, "only byte width stores to PPUDATA");
+
+    ppu.set_ppu_address(dest);
+    for (std::uint8_t i = 0; i < len; i += 1) {
+      std::byte temp;
+      memcpy(&temp, src+i, 1);
       ppu.store_data(temp);
     }
   }

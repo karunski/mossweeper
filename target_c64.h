@@ -115,6 +115,12 @@ struct target {
       c64::color_ram.at(x, y) = minesweeper_color[static_cast<uint8_t>(Tile)];
     }
 
+    static void place(const ScreenCode * string, std::uint8_t len, std::uint8_t x, std::uint8_t y) {
+      for (std::uint8_t i = 0; i < len; i += 1) {
+        place(string[i], x + i, y);
+      }
+    }
+
     static void place(ScreenCode Tile, TilePoint tilePos) {
       place(Tile, tilePos.X, tilePos.Y);
     }
