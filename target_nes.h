@@ -22,7 +22,7 @@ namespace nes {
 
       static constexpr auto BLANK = static_cast<tile_type>(0x1);
       static constexpr auto LetterA = static_cast<tile_type>(0x40);
-      static constexpr auto SelectArrow = static_cast<tile_type>(0xF);
+      static constexpr auto SelectArrow = static_cast<tile_type>(0xC);
 
       static constexpr std::uint8_t ScreenWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
