@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <nes.h>
 #include <ppu.h>
+#include "tile_model.h"
 
 namespace nes {
 
@@ -21,6 +22,7 @@ namespace nes {
 
       static constexpr auto BLANK = static_cast<tile_type>(0x1);
       static constexpr auto LetterA = static_cast<tile_type>(0x40);
+      static constexpr auto SelectArrow = static_cast<tile_type>(0xF);
 
       static constexpr std::uint8_t ScreenWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
@@ -38,8 +40,11 @@ namespace nes {
         *PPU::PALETTE_BASE = c;
       }
 
-      static void place(tile_type Tile, std::uint8_t x, std::uint8_t y) {
-        *(PPU::NAME_TABLE_0 + (y*32 + x)) = Tile;
+      static void place(tile_type tile, const TilePoint & location) {
+        auto & current_update = tile_updates[tile_updates_size];
+        current_update.tile = tile;
+        current_update.nametable_offset = location.Y*32 + location.X;
+        tile_updates_size += 1;
       }
 
       static void place(const tile_type *string, std::uint8_t len,
@@ -53,6 +58,7 @@ namespace nes {
 
       static void finish_rendering() {
 
+        // Multi-byte updates.
         for (std::uint8_t i = 0; i < tile_string_updates_size; i += 1) {
           const auto & current_update = tile_string_updates[i];
           PPU::copy(PPU::NAME_TABLE_0 + current_update.nametable_offset, current_update.data, current_update.len);
@@ -60,6 +66,16 @@ namespace nes {
 
         tile_string_updates_size = 0;
 
+        // Single byte updates.
+        for (std::uint8_t i = 0; i < tile_updates_size; i += 1) {
+          const auto & current_update = tile_updates[i];
+          *(PPU::NAME_TABLE_0 + current_update.nametable_offset) = current_update.tile;
+        }
+
+        tile_updates_size = 0;
+        
+        // must always reset before the frame starts... the on-screen rendering uses the address
+        // register to determine where to read the tiles from!
         ppu.set_ppu_address(PPU::NAME_TABLE_0);
       }
 
@@ -74,6 +90,13 @@ namespace nes {
       static TileStringUpdate tile_string_updates[5];
       static std::uint8_t tile_string_updates_size;
 
+      struct TileUpdate {
+        tile_type tile;
+        std::uint16_t nametable_offset;
+      };
+
+      static TileUpdate tile_updates[10];
+      static std::uint8_t tile_updates_size;
     };
 
     static bool startup_check() { return true; }
@@ -119,6 +142,9 @@ namespace nes {
 
   inline std::uint8_t target::graphics::tile_string_updates_size = 0;
   inline target::graphics::TileStringUpdate target::graphics::tile_string_updates[5];
+
+  inline std::uint8_t target::graphics::tile_updates_size = 0;
+  inline target::graphics::TileUpdate target::graphics::tile_updates[10];
 }
 
 using target = nes::target;

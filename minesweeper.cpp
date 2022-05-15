@@ -1226,7 +1226,6 @@ struct key_scan_res {
         break;
     }
     
-    #ifdef PLATFORM_C64
     GameBoardDrawer::Traits::place(target::graphics::BLANK, DifficultyToSelectionArrow[BEGINNER]);
     GameBoardDrawer::Traits::place(target::graphics::BLANK,
                                    DifficultyToSelectionArrow[INTERMEDIATE]);
@@ -1234,7 +1233,6 @@ struct key_scan_res {
                                    DifficultyToSelectionArrow[EXPERT]);
     GameBoardDrawer::Traits::place(GameBoardDrawer::Traits::SelectArrow,
                                    DifficultyToSelectionArrow[difficulty]);
-#endif
     return this;
   }
 
@@ -1386,11 +1384,11 @@ int main()
 #endif
 
   while (true) {
-
-    rand();
     
     vsync_waiter();
     target::graphics::finish_rendering();
+
+    rand();
 
     static key_scan_res keys;
 #ifdef PLATFORM_C64
