@@ -3,10 +3,12 @@
 #ifndef MINESWEEPER_TARGET_NES_H
 #define MINESWEEPER_TARGET_NES_H
 
+#include "tile_model.h"
+#include "input_model.h"
+
 #include <cstdint>
 #include <nes.h>
 #include <ppu.h>
-#include "tile_model.h"
 
 namespace nes {
 
@@ -26,6 +28,7 @@ namespace nes {
 
       static constexpr std::uint8_t ScreenWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
+      static constexpr std::uint8_t ScoreRows = 2;
       
       static void render_off() {
         ppu.set_render_control(PPU::render_off);
@@ -117,6 +120,21 @@ namespace nes {
 
     static unsigned seed_rng() {
       return 0xaaaa;
+    }
+
+    static key_scan_res check_keys() {
+      nes::controller_1.start_sample();
+      key_scan_res result;
+      nes::controller_1.stop_sample();
+      result.space = nes::controller_1.read_d0_bit();
+      /* b button = */ nes::controller_1.read_d0_bit();
+      /* select = */ nes::controller_1.read_d0_bit();
+      /* start = */ nes::controller_1.read_d0_bit();
+      result.w = nes::controller_1.read_d0_bit();
+      result.s = nes::controller_1.read_d0_bit();
+      result.a = nes::controller_1.read_d0_bit();
+      result.d = nes::controller_1.read_d0_bit();
+      return result;
     }
   };
 

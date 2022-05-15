@@ -166,6 +166,33 @@ namespace nes {
     };
   }
 
+  struct ControllerPortRegisters {
+    volatile std::byte io;
+  };
+
+
+  // Controller Port 1 reads the control port, and it has the latch control
+  // for controlling when inputs are sampled.
+  struct ControllerPort : private ControllerPortRegisters {
+    void start_sample() volatile {
+      io = std::byte{0b00000001};
+    }
+
+    void stop_sample() volatile {
+      io = std::byte{0};
+    }
+
+    bool read_d0_bit() volatile {
+      const auto byte = io;
+      return (byte & std::byte{0b00000001}) ==
+               std::byte{0b00000001}; // check LSB, and invert result
+    }
+  };
+
+  inline auto &controller_1 =
+      *(reinterpret_cast<volatile ControllerPort *>(0x4016));
+  inline auto &controller_2 =
+      *(reinterpret_cast<volatile ControllerPort *>(0x4017));
 }
 
 #endif

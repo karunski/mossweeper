@@ -5,6 +5,7 @@
 #include "find.h"
 #include "rand.h"
 #include "tile_model.h"
+#include "input_model.h"
 
 namespace {
 
@@ -15,45 +16,7 @@ std::uint8_t game_rows = 0;
 std::uint8_t game_columns = 0;
 std::uint8_t mines = 0;
 
-struct key_scan_res {
-  bool space : 1;
-  bool w : 1;
-  bool a : 1;
-  bool s : 1;
-  bool d : 1;
-};
-
 #ifdef PLATFORM_C64
-  key_scan_res check_keys() {
-    c64::JoyScanner joyscan;
-
-    if (const auto joystick_state = joyscan.scan_joysticks();
-        joystick_state.joystick_a != c64::JoyScanner::JoyScan::CLEAR ||
-        joystick_state.joystick_b != c64::JoyScanner::JoyScan::CLEAR) {
-      return key_scan_res{
-          c64::JoyScanner::JoyScan::BUTTON & joystick_state.joystick_a,
-          c64::JoyScanner::JoyScan::UP & joystick_state.joystick_a,
-          c64::JoyScanner::JoyScan::LEFT & joystick_state.joystick_a,
-          c64::JoyScanner::JoyScan::DOWN & joystick_state.joystick_a,
-          c64::JoyScanner::JoyScan::RIGHT & joystick_state.joystick_a};
-    }
-
-    c64::KeyScanner scanner;
-    const auto scanRow0 = scanner.Row<0>();
-    const auto scanRow1 = scanner.Row<1>();
-    const auto scanRow2 = scanner.Row<2>();
-    const auto scanRow6 = scanner.Row<6>();
-    const auto scanRow7 = scanner.Row<7>();
-    const auto down = scanRow0.KEY_CURSOR_DOWN();
-    const auto right = scanRow0.KEY_CURSOR_RIGHT();
-    const auto shift = scanRow1.KEY_LEFT_SHIFT() || scanRow6.KEY_RIGHT_SHIFT();
-    return key_scan_res{scanRow7.KEY_SPACE() || scanRow0.KEY_RETURN(),
-                        scanRow1.KEY_W() || (down && shift),
-                        scanRow1.KEY_A() || (right && shift),
-                        scanRow1.KEY_S() || (down && !shift),
-                        scanRow2.KEY_D() || (right && !shift)};
-  }
-
   struct SpriteBase {
   public:
     static constexpr std::uint8_t sprite_x_offset = 24;
@@ -1196,14 +1159,14 @@ struct key_scan_res {
 
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
-    #ifdef PLATFORM_C64
       GameBoardDrawer::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
                                    DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
       target::clear_screen();
+#ifdef PLATFORM_C64
       reset();
       return game_field.init(); 
-      #endif
+#endif
       break;
     case FireButtonEventFilter::LONG_PRESS: 
     case FireButtonEventFilter::PRESS:
@@ -1391,11 +1354,7 @@ int main()
     rand();
 
     static key_scan_res keys;
-#ifdef PLATFORM_C64
-    keys = check_keys();
-#else
-    keys = key_scan_res{};
-#endif
+    keys = target::check_keys();
 
     current_mode = current_mode->on_vsync(fire_button_handler(keys.space),
                                           direction_event_filter(keys));

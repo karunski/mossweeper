@@ -4,6 +4,7 @@
 #define MINESWEEPER_TARGET_C64_H
 
 #include "tile_model.h"
+#include "input_model.h"
 
 #include <c64.h>
 #include <stdio.h>
@@ -163,6 +164,36 @@ struct target {
     sid.voices[2].set_frequency(0xFFFF);
     sid.voices[2].set_control(SIDVoice::noise);
     return (get_non_zero_sid_random() << 8) | get_non_zero_sid_random();
+  }
+
+  static key_scan_res check_keys() {
+    c64::JoyScanner joyscan;
+
+    if (const auto joystick_state = joyscan.scan_joysticks();
+        joystick_state.joystick_a != c64::JoyScanner::JoyScan::CLEAR ||
+        joystick_state.joystick_b != c64::JoyScanner::JoyScan::CLEAR) {
+      return key_scan_res{
+          c64::JoyScanner::JoyScan::BUTTON & joystick_state.joystick_a,
+          c64::JoyScanner::JoyScan::UP & joystick_state.joystick_a,
+          c64::JoyScanner::JoyScan::LEFT & joystick_state.joystick_a,
+          c64::JoyScanner::JoyScan::DOWN & joystick_state.joystick_a,
+          c64::JoyScanner::JoyScan::RIGHT & joystick_state.joystick_a};
+    }
+
+    c64::KeyScanner scanner;
+    const auto scanRow0 = scanner.Row<0>();
+    const auto scanRow1 = scanner.Row<1>();
+    const auto scanRow2 = scanner.Row<2>();
+    const auto scanRow6 = scanner.Row<6>();
+    const auto scanRow7 = scanner.Row<7>();
+    const auto down = scanRow0.KEY_CURSOR_DOWN();
+    const auto right = scanRow0.KEY_CURSOR_RIGHT();
+    const auto shift = scanRow1.KEY_LEFT_SHIFT() || scanRow6.KEY_RIGHT_SHIFT();
+    return key_scan_res{scanRow7.KEY_SPACE() || scanRow0.KEY_RETURN(),
+                        scanRow1.KEY_W() || (down && shift),
+                        scanRow1.KEY_A() || (right && shift),
+                        scanRow1.KEY_S() || (down && !shift),
+                        scanRow2.KEY_D() || (right && !shift)};
   }
 
 private:
