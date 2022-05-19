@@ -2,6 +2,7 @@
 #include <string.h>
 #include <cstdint>
 #include <cstddef>
+#include <typeinfo>
 #include "find.h"
 #include "rand.h"
 #include "tile_model.h"
@@ -120,26 +121,23 @@ std::uint8_t mines = 0;
     template<TileType LeftCorner, TileType Middle, TileType RightCorner>
     static void DrawBorderRow(std::uint8_t currentRow)
     {
-      GameBoardTraits::place(LeftCorner, board_pos.X, currentRow);
-      for (std::uint8_t i = 0; i < game_columns; i += 1)
-      {
-        GameBoardTraits::place(Middle, board_pos.X + 1 + i, currentRow);
-      }
-      GameBoardTraits::place(RightCorner, board_pos.X + 1 + game_columns,
-                             currentRow);
+      GameBoardTraits::place_immediate(LeftCorner, board_pos.X, currentRow);
+      GameBoardTraits::fill_immediate(Middle, board_pos.X+1, currentRow, game_columns);
+      GameBoardTraits::place_immediate(
+          RightCorner, board_pos.X + 1 + game_columns, currentRow);
     }
 
     static void DrawSideBorders(std::uint8_t currentRow)
     {
-      GameBoardTraits::place(GameBoardTraits::LeftBorder, board_pos.X, currentRow);
-      GameBoardTraits::place(GameBoardTraits::RightBorder, board_pos.X + 1 + game_columns, currentRow);
+      GameBoardTraits::place_immediate(GameBoardTraits::LeftBorder, board_pos.X, currentRow);
+      GameBoardTraits::place_immediate(GameBoardTraits::RightBorder,
+                                       board_pos.X + 1 + game_columns,
+                                       currentRow);
     }
 
     static void DrawHidden(std::uint8_t currentRow)
     {
-      for (std::uint8_t i = 1; i <= game_columns; i += 1) {
-        GameBoardTraits::place(GameBoardTraits::HiddenSquare, board_pos.X + i, currentRow);
-      }
+      GameBoardTraits::fill_immediate(GameBoardTraits::HiddenSquare, board_pos.X + 1, currentRow, game_columns);
     }
 
     template<class MetaTileType>
@@ -312,13 +310,15 @@ std::uint8_t mines = 0;
     template<std::uint8_t len>
     static void DrawString(const TilePattern<TileType, len> & pattern, std::uint8_t x,
                              std::uint8_t y) {
-      GameBoardTraits::place(pattern.m_data, len, x, y);
+      GameBoardTraits::place_immediate(pattern.m_data, len, x, y);
     }
 
     struct tile_to_char {
       static constexpr auto call(char c) {
-        return static_cast<TileType>(
-            static_cast<std::uint8_t>(GameBoardTraits::LetterA) + (c - 'A'));
+        return c == ' ' ? GameBoardTraits::BLANK
+                        : static_cast<TileType>(static_cast<std::uint8_t>(
+                                                    GameBoardTraits::LetterA) +
+                                                (c - 'A'));
       };
     };
 
@@ -840,6 +840,8 @@ std::uint8_t mines = 0;
     }
   };
 
+#endif
+
   class ScoreUpdate {
     public:
     void operator()() {
@@ -850,11 +852,14 @@ std::uint8_t mines = 0;
   ScoreUpdate score_updater;
 
   void reset() {
+
     GameBoardDrawer::DrawBoard();
 
+#ifdef PLATFORM_C64
     sprite_background.position(
         GameBoardDrawer::tile_to_sprite_x(GameBoardDrawer::reset_button_x()),
         GameBoardDrawer::tile_to_sprite_y(GameBoardDrawer::reset_button_y()));
+#endif
 
     static constexpr std::uint8_t cursor_frameskip = 1;
     static std::uint8_t cursor_current_frameskip = 0;
@@ -870,9 +875,9 @@ std::uint8_t mines = 0;
         mines_left -= 1;
       }
     }
-
   }
 
+#ifdef PLATFORM_C64
   CursorAnimateFunc cursor_animator;
 #endif
 
@@ -918,16 +923,12 @@ std::uint8_t mines = 0;
 
   struct AppMode {
     virtual AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) = 0;
+    virtual void on_init(AppMode * last_mode) = 0;
   };
 
-#ifdef PLATFORM_C64
+  struct AppModeGame final : public AppMode {
 
-  struct AppModeGame : public AppMode {
-
-    AppMode * init() {
-      current_selected = TilePoint{};
-      return this;
-    }
+    void on_init(AppMode * last_mode) override;
 
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
 
@@ -940,7 +941,9 @@ std::uint8_t mines = 0;
   TilePoint AppModeGame::current_selected{0, 0};
   bool AppModeGame::suppress_expose = false;
 
+#ifdef PLATFORM_C64
   struct AppModeResetButton : public AppMode {
+    void on_init(AppMode *) override{}
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
 
@@ -948,7 +951,7 @@ std::uint8_t mines = 0;
 
   struct AppModeSelectDifficulty : public AppMode {
 
-    static void draw() {
+    void on_init(AppMode *) override {
       static constexpr auto SELECT_DIFFICULTY =
           GameBoardDrawer::GenerateTileString("SELECT DIFFICULTY ");
       static constexpr auto BEGINNER = 
@@ -957,6 +960,8 @@ std::uint8_t mines = 0;
           GameBoardDrawer::GenerateTileString("INTERMEDIATE");
       static constexpr auto EXPERT =
           GameBoardDrawer::GenerateTileString("EXPERT");
+      target::clear_screen();
+      target::graphics::load_pallettes(target::graphics::DifficultyScreenPallettes);
       GameBoardDrawer::DrawString(SELECT_DIFFICULTY, 1, 3);
       GameBoardDrawer::DrawString(BEGINNER, 5, 5);
       GameBoardDrawer::DrawString(INTERMEDIATE, 5, 7);
@@ -980,14 +985,19 @@ std::uint8_t mines = 0;
 
 #ifdef PLATFORM_C64
   struct AppModeDead : public AppMode {
+    void on_init(AppMode *) override{}
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
 
   struct AppModeWin : public AppMode {
+    void on_init(AppMode *) override {}
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
+#endif
 
   AppModeGame game_field;
+
+#ifdef PLATFORM_C64
   AppModeResetButton reset_selection;
   AppModeDead mode_dead;
   AppModeWin mode_win;
@@ -1006,6 +1016,7 @@ std::uint8_t mines = 0;
   static constexpr c64::Note flag_sfx[] = {
       {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_3, 13},
       {c64::SIDVoice::ControlFlags{}, 0, 1}};
+#endif
 
   AppMode *
   AppModeGame::on_vsync(FireButtonEventFilter::Event fire_button_events,
@@ -1019,6 +1030,8 @@ std::uint8_t mines = 0;
     // for the current frame.
     if (game_state.expose_continuation)
     {
+#ifdef PLATFORM_C64
+
       const auto [is_ok, next_expose] = (*game_state.expose_continuation)();
       game_state.expose_continuation = next_expose;
 
@@ -1026,6 +1039,7 @@ std::uint8_t mines = 0;
         game_state.time_running = false;
         return &mode_dead;
       }
+#endif
 
       suppress_expose = game_state.expose_continuation != nullptr;
     }
@@ -1037,6 +1051,7 @@ std::uint8_t mines = 0;
         suppress_expose = false;
       }
       else {
+#ifdef PLATFORM_C64
         const auto [is_ok, next_expose] = expose_recurse(current_selected, 0);
         game_state.expose_continuation = next_expose;
 
@@ -1044,6 +1059,7 @@ std::uint8_t mines = 0;
           game_state.time_running = false;
           return &mode_dead;
         }
+#endif
       }
       GameBoardDrawer::DrawResetButtonHappy();
       game_state.time_running = true;
@@ -1051,7 +1067,9 @@ std::uint8_t mines = 0;
     case FireButtonEventFilter::LONG_PRESS: {
       if (!game_state.is_exposed(current_selected)) {
         if (game_state.set_flag(current_selected)) {
+#ifdef PLATFORM_C64
           c64::MusicPlayer::play(0, false, flag_sfx);
+#endif
           GameBoardDrawer::Flag(current_selected);
         }
         else {
@@ -1061,7 +1079,9 @@ std::uint8_t mines = 0;
       }
     } break;
     case FireButtonEventFilter::PRESS:
+#ifdef PLATFORM_C64
       c64::MusicPlayer::play(0, false, expose_sfx);
+#endif
       GameBoardDrawer::DrawResetButtonCaution();
       break;
     case FireButtonEventFilter::NO_EVENT:
@@ -1069,12 +1089,18 @@ std::uint8_t mines = 0;
     }
 
     if (direction_events.w || direction_events.a || direction_events.s || direction_events.d) {
+#ifdef PLATFORM_C64
       c64::MusicPlayer::play(1, false, shoot_sfx);
+#endif
     }
 
     if ((direction_events.w && current_selected.Y == 0) ||
         (direction_events.s && current_selected.Y == game_rows - 1)) {
+#ifdef PLATFORM_C64
       return &reset_selection;
+#else
+      return this;
+#endif
     }
 
     current_selected =
@@ -1088,18 +1114,26 @@ std::uint8_t mines = 0;
                 game_columns)
             .right(direction_events.d);
 
+#ifdef PLATFORM_C64
     cursor.position(GameBoardDrawer::selection_to_sprite_x(current_selected.X),
                     GameBoardDrawer::selection_to_sprite_y(current_selected.Y));
     cursor.expand(false, false);
 
     cursor_animator();
+#endif
 
     score_updater();
 
     const auto winning = game_state.hidden_clear == 0;
     game_state.time_running = !winning;
+#ifdef PLATFORM_C64
     return next_mode_win[winning];
+#else
+    return this;
+#endif
   }
+
+#ifdef PLATFORM_C64
 
   AppMode *
   AppModeResetButton::on_vsync(FireButtonEventFilter::Event fire_button_events,
@@ -1162,11 +1196,8 @@ std::uint8_t mines = 0;
       GameBoardDrawer::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
                                    DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
-      target::clear_screen();
-#ifdef PLATFORM_C64
       reset();
-      return game_field.init(); 
-#endif
+      return &game_field;
       break;
     case FireButtonEventFilter::LONG_PRESS: 
     case FireButtonEventFilter::PRESS:
@@ -1201,6 +1232,16 @@ std::uint8_t mines = 0;
 
   AppModeSelectDifficulty difficulty_selection;
 
+  void AppModeGame::on_init(AppMode *last_mode) {
+    target::graphics::load_pallettes(target::graphics::GameBoardPallettes);
+
+    if (last_mode == &difficulty_selection) {
+      target::clear_screen();
+      reset();
+      current_selected = TilePoint{};
+    }
+  }
+
   AppMode *current_mode = &difficulty_selection;
 
 #ifdef PLATFORM_C64
@@ -1208,7 +1249,6 @@ std::uint8_t mines = 0;
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
       target::clear_screen();
-      difficulty_selection.draw();
       return &difficulty_selection;
       break;
     case FireButtonEventFilter::LONG_PRESS:
@@ -1234,7 +1274,6 @@ std::uint8_t mines = 0;
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
       target::clear_screen();
-      difficulty_selection.draw();
       return &difficulty_selection;
       break;
     case FireButtonEventFilter::LONG_PRESS:
@@ -1312,7 +1351,6 @@ int main()
   auto vsync_waiter = target::get_vsync_wait();
 
   target::graphics::render_off();
-  target::graphics::set_background_color<0>(target::graphics::WHITE);
   target::clear_screen();
 
 #ifdef PLATFORM_C64
@@ -1331,7 +1369,8 @@ int main()
 
 #endif
 
-  AppModeSelectDifficulty::draw();
+  current_mode->on_init(nullptr);
+  vsync_waiter();
   target::graphics::finish_rendering();
   target::graphics::enable_render_background();
 
@@ -1356,8 +1395,16 @@ int main()
     static key_scan_res keys;
     keys = target::check_keys();
 
-    current_mode = current_mode->on_vsync(fire_button_handler(keys.space),
+    const auto next_mode = current_mode->on_vsync(fire_button_handler(keys.space),
                                           direction_event_filter(keys));
+    if (next_mode != current_mode) {
+      vsync_waiter();
+      target::graphics::render_off();
+      next_mode->on_init(current_mode);
+      vsync_waiter();
+      target::graphics::enable_render_background();
+      current_mode = next_mode;
+    }
 
     game_state.time_running && clock_updater();
 #ifdef PLATFORM_C64

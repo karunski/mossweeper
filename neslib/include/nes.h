@@ -80,7 +80,10 @@ namespace nes {
     }
 
     static constexpr pointer PALETTE_BASE{0x3F00};
+    static constexpr pointer PALETTE_BACKGROUND[4] = {0x3F01, 0x3F05, 0x3F09, 0x3F0D};
+    static constexpr pointer PALETTE_SPRITE[4] = {0x3F11, 0x3F15, 0x3f19, 0x3f1D};
     static constexpr pointer NAME_TABLE_0{0x2000};
+    static constexpr pointer ATTRIBUTE_TABLE_0{0x23C0};
   };
 
   PPU::render_bits operator|(PPU::render_bits left, PPU::render_bits right) {
@@ -150,11 +153,13 @@ namespace nes {
       Chartreuse = 0x9,
       Green = 0xA,
       Spring = 0xB,
-      Cyan = 0xC
+      Cyan = 0xC,
+      Black = 0xD
     };
 
     constexpr Color(Luma luma, Chroma hue)
         : value{static_cast<std::uint8_t>(luma | hue)} {}
+    constexpr Color() : Color{Dark, Black} {}
 
     std::uint8_t value;
   };

@@ -24,12 +24,75 @@ namespace nes {
 
       static constexpr auto BLANK = static_cast<tile_type>(0x1);
       static constexpr auto LetterA = static_cast<tile_type>(0x40);
-      static constexpr auto SelectArrow = static_cast<tile_type>(0xC);
+      static constexpr auto SelectArrow = static_cast<tile_type>(0x29);
+      static constexpr auto TopLeft = static_cast<tile_type>(0xA);
+      static constexpr auto TopBorder = static_cast<tile_type>(0xB);
+      static constexpr auto BottomLeft = static_cast<tile_type>(0xC);
+      static constexpr auto BottomBorder = static_cast<tile_type>(0xD);
+      static constexpr auto LeftBorder = static_cast<tile_type>(0xE);
+      static constexpr auto RightBorder = static_cast<tile_type>(0xD);
+      static constexpr auto TopRight = static_cast<tile_type>(0xC);
+      static constexpr auto BottomRight = static_cast<tile_type>(0x10);
+      static constexpr auto HiddenSquare = static_cast<tile_type>(0x0);
+      static constexpr tile_type Flag{0x27};
 
       static constexpr std::uint8_t ScreenWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
       static constexpr std::uint8_t ScoreRows = 2;
-      
+
+      using Emoji = MetaTile<tile_type, 2, 2>;
+
+      static constexpr Emoji Happy = {
+          {{tile_type{2}, tile_type{3}}, {tile_type{0x11}, tile_type{0x12}}}};
+      static constexpr Emoji Caution = {
+          {{tile_type{0x04}, tile_type{0x05}},
+           {tile_type{0x13}, tile_type{0x14}}}};
+
+      using Digit = MetaTile<tile_type, 1, 2>;
+
+      static constexpr Digit ScoreDigits[10] = {
+          {{tile_type{0x68}, tile_type{0x77}}}, {{tile_type{0x69}, tile_type{0x78}}},
+          {{tile_type{0x6a}, tile_type{0x79}}}, {{tile_type{0x6b}, tile_type{0x7a}}},
+          {{tile_type{0x6c}, tile_type{0x7b}}}, {{tile_type{0x6d}, tile_type{0x7c}}},
+          {{tile_type{0x6e}, tile_type{0x7d}}}, {{tile_type{0x6f}, tile_type{0x7e}}},
+          {{tile_type{0x70}, tile_type{0x7f}}}, {{tile_type{0x71}, tile_type{0x80}}}};
+
+      struct Pallette {
+        Color colors[3];
+      };
+
+      static_assert(sizeof(Pallette) == 3);
+      struct Pallettes {
+        Color background_color; // shared by all pallettes.
+        Pallette background[4];
+        Pallette sprite[4];
+      };
+
+      static_assert(sizeof(Pallettes) == 25);
+
+      static constexpr Pallettes DifficultyScreenPallettes = {
+        WHITE, {}
+      };
+
+      static constexpr Pallettes GameBoardPallettes = {
+          WHITE,
+          {Color{Color::Light, Color::Yellow},
+           Color{Color::Medium, Color::Gray},
+           Color{}}};
+
+      static void
+      load_pallettes(const Pallettes &pallettes) {
+        set_background_color<0>(pallettes.background_color);
+        for (uint8_t i = 0; i < 4; i += 1) {
+          PPU::copy(PPU::PALETTE_BACKGROUND[i], &pallettes.background[i].colors[0],
+                    sizeof(Pallette));
+        }
+        for (uint8_t i = 0; i < 4; i += 1) {
+          PPU::copy(PPU::PALETTE_SPRITE[i], &pallettes.sprite[i].colors[0],
+                    sizeof(Pallette));
+        }
+      }
+
       static void render_off() {
         ppu.set_render_control(PPU::render_off);
       }
@@ -43,20 +106,50 @@ namespace nes {
         *PPU::PALETTE_BASE = c;
       }
 
+      static void place(tile_type tile, std::uint8_t x, std::uint8_t y) {
+        place(tile, TilePoint{x, y});
+      }
+
       static void place(tile_type tile, const TilePoint & location) {
+        if (tile_updates_size == TILE_UPDATES_MAX) {
+          return;
+        }
+
         auto & current_update = tile_updates[tile_updates_size];
         current_update.tile = tile;
         current_update.nametable_offset = location.Y*32 + location.X;
         tile_updates_size += 1;
       }
 
+      static void place_immediate(tile_type tile, std::uint8_t x, std::uint8_t y) {
+        place_immediate(tile, ppu_coord_addr(x, y));
+      }
+
+      static void place_immediate(tile_type tile, PPU::pointer ptr) {
+        *ptr = tile;
+      }
+
       static void place(const tile_type *string, std::uint8_t len,
                         std::uint8_t x, std::uint8_t y) {
+        if (tile_string_updates_size == TILE_STRING_UPDATES_MAX) {
+          return;
+        }
+
         auto & current_update = tile_string_updates[tile_string_updates_size];
         current_update.data = string;
         current_update.nametable_offset = y * 32 + x;
         current_update.len = len;
         tile_string_updates_size += 1;
+      }
+
+      static void place_immediate(const tile_type *string, std::uint8_t len,
+                        std::uint8_t x, std::uint8_t y) {
+        PPU::copy(ppu_coord_addr(x, y), string, len);
+        //TODO: set attributes.
+      }
+
+      static void fill_immediate(const tile_type tile, std::uint8_t x, std::uint8_t y, std::uint8_t len) {
+        PPU::fill(ppu_coord_addr(x, y), tile, len);
       }
 
       static void finish_rendering() {
@@ -90,7 +183,8 @@ namespace nes {
         std::uint8_t len;
       };
 
-      static TileStringUpdate tile_string_updates[5];
+      static constexpr std::uint8_t TILE_STRING_UPDATES_MAX = 5;
+      static TileStringUpdate tile_string_updates[TILE_STRING_UPDATES_MAX];
       static std::uint8_t tile_string_updates_size;
 
       struct TileUpdate {
@@ -98,14 +192,20 @@ namespace nes {
         std::uint16_t nametable_offset;
       };
 
-      static TileUpdate tile_updates[10];
+      static constexpr std::uint8_t TILE_UPDATES_MAX = 15;
+      static TileUpdate tile_updates[TILE_UPDATES_MAX];
       static std::uint8_t tile_updates_size;
+
+      constexpr static PPU::pointer ppu_coord_addr(std::uint8_t x, std::uint8_t y) {
+        return PPU::NAME_TABLE_0 + (y * 32 + x);
+      }
     };
 
     static bool startup_check() { return true; }
     
     static void clear_screen() {
       PPU::fill(PPU::NAME_TABLE_0, graphics::BLANK, 960);
+      PPU::fill(PPU::ATTRIBUTE_TABLE_0, std::byte{0}, 64);
       ppu.set_scroll(0, 0);
     }
 
@@ -159,10 +259,12 @@ namespace nes {
   }
 
   inline std::uint8_t target::graphics::tile_string_updates_size = 0;
-  inline target::graphics::TileStringUpdate target::graphics::tile_string_updates[5];
+  inline target::graphics::TileStringUpdate target::graphics::
+      tile_string_updates[target::graphics::TILE_STRING_UPDATES_MAX];
 
   inline std::uint8_t target::graphics::tile_updates_size = 0;
-  inline target::graphics::TileUpdate target::graphics::tile_updates[10];
+  inline target::graphics::TileUpdate
+      target::graphics::tile_updates[target::graphics::TILE_UPDATES_MAX];
 }
 
 using target = nes::target;
