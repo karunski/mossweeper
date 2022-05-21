@@ -770,9 +770,7 @@ std::uint8_t mines = 0;
         current_frames = 0;
       }
 
-#ifdef PLATFORM_C64
       GameBoardDrawer::DrawTime(game_state.timer);
-#endif
       return true;
     }
   };
