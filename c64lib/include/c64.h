@@ -125,7 +125,7 @@ struct Sprite {
     enum Mode { STANDARD = 0x00, MULTICOLOR = 0x80 };
 
     Mode mode() const { return static_cast<Mode>(mode_byte & std::byte{0x80}); }
-    c64::ColorCode sprite_color() const {
+    constexpr c64::ColorCode sprite_color() const {
       return static_cast<c64::ColorCode>(mode_byte & std::byte{0xF});
     }
 

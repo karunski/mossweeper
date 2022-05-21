@@ -18,70 +18,19 @@ std::uint8_t game_columns = 0;
 std::uint8_t mines = 0;
 
 #ifdef PLATFORM_C64
-  struct SpriteBase {
-  public:
-    static constexpr std::uint8_t sprite_x_offset = 24;
-    static constexpr std::uint8_t sprite_y_offset = 50;
-
-    struct Position {
-      std::uint16_t X;
-      std::uint8_t Y;
-    };
-
-    void enable(bool en) { c64::vic_ii.sprite_enable.set(active_number, en); }
-
-    void multicolor_enable(bool en) {
-      c64::vic_ii.sprite_multicolor_enable.set(active_number, en);
-    }
-
-    void data_priority(bool en) {
-      c64::vic_ii.sprite_data_priority.set(active_number, en);
-    }
-
-    void position(std::uint16_t x, std::uint8_t y) {
-      c64::vic_ii.set_sprite_pos(active_number, x, y);
-    }
-
-    void expand(bool x, bool y) {
-      c64::vic_ii.sprite_x_expansion.set(active_number, x);
-      c64::vic_ii.sprite_y_expansion.set(active_number, y);
-    }
-
-  protected:
-    std::uint8_t active_number = 0;
-  };
 
   template <std::uint8_t Slot, std::uint8_t Frames>
-  struct Sprite : public SpriteBase
+  struct Sprite : public target::graphics::sprite
   {
     static constexpr std::uint8_t slot = Slot;
     static constexpr std::uint8_t frames = Frames;
-
-    void activate(std::uint8_t sprite_number, c64::ColorCode sprite_color) {
-      active_number = sprite_number;
-      c64::screen_ram.sprite_ptr(active_number) = sprite_data_ram[slot];
-      c64::vic_ii.sprite_color[active_number] =
-          sprite_color;
-    }
-
-    void select_frame(std::uint8_t frame) {
-      c64::screen_ram.sprite_ptr(active_number) =
-          sprite_data_ram[slot + frame];
-    }
-
   };
 
-  using Cursor = Sprite<0, 7>;
-  Cursor cursor;
+  target::graphics::sprite cursor;
   std::uint8_t cursor_anim_frame = 0;
 
-  using SpriteBackground = Sprite<7, 1>;
-  SpriteBackground sprite_background;
-
-
+  target::graphics::sprite sprite_background;
 #endif
-
-  
 
   struct OptionalTilePoint : public TilePoint {
 
@@ -285,11 +234,11 @@ std::uint8_t mines = 0;
 
 #ifdef PLATFORM_C64
     static std::uint16_t tile_to_sprite_x(std::uint8_t tile_x) {
-      return Cursor::sprite_x_offset + (unsigned{tile_x} << 3u);
+      return target::graphics::sprite::sprite_x_offset + (unsigned{tile_x} << 3u);
     }
 
     static std::uint8_t tile_to_sprite_y(std::uint8_t tile_y) {
-      return Cursor::sprite_y_offset + (tile_y << 3u);
+      return target::graphics::sprite::sprite_y_offset + (tile_y << 3u);
     }
 
     static std::uint16_t selection_to_sprite_x(std::uint8_t tile_x) {
@@ -829,12 +778,12 @@ std::uint8_t mines = 0;
         cursor_current_frameskip = 0;
 
         cursor_anim_frame += 1;
-        if (cursor_anim_frame == Cursor::frames) {
+        if (cursor_anim_frame == target::graphics::Cursor.number_of_frames) {
           cursor_anim_frame = 0;
         }
       }
 
-      cursor.select_frame(cursor_anim_frame);
+      cursor.select_frame(target::graphics::Cursor, cursor_anim_frame);
     }
   };
 
@@ -1326,25 +1275,7 @@ int main()
 
   clock_updater.frames_per_second = target::frames_per_second();
   
-  target::load_tile_set();
-
-#ifdef PLATFORM_C64
-
-  {
-    const c64::ScopedInterruptDisable disable_interrupts;
-    const c64::PLA::BankSwitchScope disable_io {c64::PLA::MODE_28};
-
-    // Put the cursor sprite in VRAM.
-    for (std::uint8_t i = 0; i < Cursor::frames; i += 1) {
-      sprite_data_ram[Cursor::slot + i] = minesweeper_cursor[i];
-    }
-
-    sprite_data_ram[SpriteBackground::slot] = minesweeper_bg_sprites[0];
-  }
-
-  c64::vic_ii.setup_memory(c64::ScreenMemoryAddresses::screen_setting,
-                           c64::ScreenMemoryAddresses::char_data_setting);
-#endif
+  target::load_all_graphics();
 
   auto vsync_waiter = target::get_vsync_wait();
 
@@ -1352,15 +1283,14 @@ int main()
   target::clear_screen();
 
 #ifdef PLATFORM_C64
-  c64::vic_ii.set_multi_color_mode(false);
 
   // cursor shall be sprite 0.
-  cursor.activate(0, minesweeper_cursor[0].mode.sprite_color());
+  cursor.activate(0, target::graphics::Cursor);
   cursor.enable(true);
   cursor.data_priority(false);
   cursor.multicolor_enable(false);
 
-  sprite_background.activate(7, minesweeper_bg_sprites[0].mode.sprite_color());
+  sprite_background.activate(7, target::graphics::SpriteBackground);
   sprite_background.enable(true);
   sprite_background.data_priority(true);
   sprite_background.multicolor_enable(false);

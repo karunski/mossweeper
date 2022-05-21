@@ -25,6 +25,7 @@ extern const c64::ColorCode minesweeper_color[256];
 
 namespace c64 {
 
+// Use this hardware configuration for the RAM associated with the display:
 using ScreenMemoryAddresses =
     c64::DisplayAddr<c64::CIA2::vic_bank::NO_3, c64::VicII::VIDEO_OFFSET_0000,
                      c64::VicII::TEXT_0800>;
@@ -145,10 +146,63 @@ struct target {
     static constexpr Pallettes DifficultyScreenPallettes{WHITE};
 
     static void load_pallettes(const Pallettes & pallettes) {
+      c64::vic_ii.set_multi_color_mode(false);
       set_background_color<0>(pallettes.background_color);
     }
-  };
 
+    struct sprite_pattern {
+      std::uint8_t slot;
+      std::uint8_t number_of_frames;
+      ColorCode sprite_color;
+    };
+
+    static const sprite_pattern Cursor;
+    static const sprite_pattern SpriteBackground;
+
+    struct sprite {
+    public:
+      static constexpr std::uint8_t sprite_x_offset = 24;
+      static constexpr std::uint8_t sprite_y_offset = 50;
+
+      struct Position {
+        std::uint16_t X;
+        std::uint8_t Y;
+      };
+
+      void enable(bool en) { c64::vic_ii.sprite_enable.set(active_number, en); }
+
+      void multicolor_enable(bool en) {
+        c64::vic_ii.sprite_multicolor_enable.set(active_number, en);
+      }
+
+      void data_priority(bool en) {
+        c64::vic_ii.sprite_data_priority.set(active_number, en);
+      }
+
+      void position(std::uint16_t x, std::uint8_t y) {
+        c64::vic_ii.set_sprite_pos(active_number, x, y);
+      }
+
+      void expand(bool x, bool y) {
+        c64::vic_ii.sprite_x_expansion.set(active_number, x);
+        c64::vic_ii.sprite_y_expansion.set(active_number, y);
+      }
+
+      void activate(std::uint8_t sprite_number, const sprite_pattern & pattern) {
+        active_number = sprite_number;
+        c64::screen_ram.sprite_ptr(active_number) = sprite_data_ram[pattern.slot];
+        c64::vic_ii.sprite_color[active_number] = pattern.sprite_color;
+      }
+
+      void select_frame(const sprite_pattern &pattern, std::uint8_t frame) {
+        c64::screen_ram.sprite_ptr(active_number) =
+            sprite_data_ram[pattern.slot + frame];
+      }
+
+    protected:
+      std::uint8_t active_number = 0;
+    };
+  };
 
   static bool startup_check() {
     if (&char_data_ram != reinterpret_cast<void *>(0xC800)) {
@@ -178,6 +232,31 @@ struct target {
   static void load_tile_set() {
     c64::cia2.set_vic_bank(c64::ScreenMemoryAddresses::vic_base_setting);
     memcpy(c64::char_data_ram.data, minesweeper_gfx, sizeof(minesweeper_gfx));
+  }
+
+  static void load_sprite_data() {
+    // Temporarily bank-out the kernel and basic ROMS, and I/O, to use the RAM they
+    // shadow to hold sprite data.
+    const ScopedInterruptDisable disable_interrupts;
+    const PLA::BankSwitchScope disable_io{PLA::MODE_28};
+
+    // Put the cursor sprite in VRAM.
+    for (std::uint8_t i = 0; i < target::graphics::Cursor.number_of_frames;
+         i += 1) {
+      sprite_data_ram[target::graphics::Cursor.slot + i] =
+          minesweeper_cursor[i];
+    }
+
+    sprite_data_ram[target::graphics::SpriteBackground.slot] =
+        minesweeper_bg_sprites[0];
+  }
+
+  static void load_all_graphics() {
+    load_tile_set();
+    load_sprite_data();
+    // Our graphics data is in place, now configure the hardware to point to it.
+    c64::vic_ii.setup_memory(ScreenMemoryAddresses::screen_setting,
+                             ScreenMemoryAddresses::char_data_setting);
   }
 
   static auto get_vsync_wait() { return c64::get_vsync_wait(); }
@@ -242,6 +321,12 @@ private:
   }
 };
 
+inline const target::graphics::sprite_pattern target::graphics::Cursor{
+    0, 7, minesweeper_cursor[0].mode.sprite_color()};
+
+inline const target::graphics::sprite_pattern
+    target::graphics::SpriteBackground{
+        7, 1, minesweeper_bg_sprites[0].mode.sprite_color()};
 }
 
 using target = c64::target;

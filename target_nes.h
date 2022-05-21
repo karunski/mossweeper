@@ -211,7 +211,8 @@ namespace nes {
 
     static std::uint8_t frames_per_second() { return 60; } // TODO... support PAL
 
-    static void load_tile_set() {
+    static void load_all_graphics() {
+      // not needed with a direct-mapped char rom.
     }
 
     static auto get_vsync_wait() {
