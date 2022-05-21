@@ -27,12 +27,12 @@ namespace nes {
       static constexpr auto SelectArrow = static_cast<tile_type>(0x29);
       static constexpr auto TopLeft = static_cast<tile_type>(0xA);
       static constexpr auto TopBorder = static_cast<tile_type>(0xB);
-      static constexpr auto BottomLeft = static_cast<tile_type>(0xC);
-      static constexpr auto BottomBorder = static_cast<tile_type>(0xD);
+      static constexpr auto BottomLeft = static_cast<tile_type>(0xF);
+      static constexpr auto BottomBorder = static_cast<tile_type>(0x10);
       static constexpr auto LeftBorder = static_cast<tile_type>(0xE);
       static constexpr auto RightBorder = static_cast<tile_type>(0xD);
       static constexpr auto TopRight = static_cast<tile_type>(0xC);
-      static constexpr auto BottomRight = static_cast<tile_type>(0x10);
+      static constexpr auto BottomRight = static_cast<tile_type>(0x17);
       static constexpr auto HiddenSquare = static_cast<tile_type>(0x0);
       static constexpr tile_type Flag{0x27};
 
@@ -51,11 +51,11 @@ namespace nes {
       using Digit = MetaTile<tile_type, 1, 2>;
 
       static constexpr Digit ScoreDigits[10] = {
-          {{tile_type{0x68}, tile_type{0x77}}}, {{tile_type{0x69}, tile_type{0x78}}},
+          {{tile_type{0x71}, tile_type{0x80}}}, {{tile_type{0x69}, tile_type{0x78}}},
           {{tile_type{0x6a}, tile_type{0x79}}}, {{tile_type{0x6b}, tile_type{0x7a}}},
           {{tile_type{0x6c}, tile_type{0x7b}}}, {{tile_type{0x6d}, tile_type{0x7c}}},
           {{tile_type{0x6e}, tile_type{0x7d}}}, {{tile_type{0x6f}, tile_type{0x7e}}},
-          {{tile_type{0x70}, tile_type{0x7f}}}, {{tile_type{0x71}, tile_type{0x80}}}};
+          {{tile_type{0x70}, tile_type{0x7f}}}, {{tile_type{0x72}, tile_type{0x81}}}};
 
       struct Pallette {
         Color colors[3];
@@ -192,7 +192,7 @@ namespace nes {
         std::uint16_t nametable_offset;
       };
 
-      static constexpr std::uint8_t TILE_UPDATES_MAX = 15;
+      static constexpr std::uint8_t TILE_UPDATES_MAX = 16;
       static TileUpdate tile_updates[TILE_UPDATES_MAX];
       static std::uint8_t tile_updates_size;
 
