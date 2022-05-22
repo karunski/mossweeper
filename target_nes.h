@@ -14,6 +14,11 @@ namespace nes {
 
   void color_cycle();
 
+  // global declaration of OAM
+  inline OAM oam;
+
+  static_assert(alignof(OAM) == 256);
+
   struct target {
     struct graphics {
       
@@ -57,39 +62,39 @@ namespace nes {
           {{tile_type{0x6e}, tile_type{0x7d}}}, {{tile_type{0x6f}, tile_type{0x7e}}},
           {{tile_type{0x70}, tile_type{0x7f}}}, {{tile_type{0x72}, tile_type{0x81}}}};
 
-      struct Pallette {
+      struct Palette {
         Color colors[3];
       };
 
-      static_assert(sizeof(Pallette) == 3);
-      struct Pallettes {
+      static_assert(sizeof(Palette) == 3);
+      struct Palettes {
         Color background_color; // shared by all pallettes.
-        Pallette background[4];
-        Pallette sprite[4];
+        Palette background[4];
+        Palette sprite[4];
       };
 
-      static_assert(sizeof(Pallettes) == 25);
+      static_assert(sizeof(Palettes) == 25);
 
-      static constexpr Pallettes DifficultyScreenPallettes = {
+      static constexpr Palettes DifficultyScreenPallettes = {
         WHITE, {}
       };
 
-      static constexpr Pallettes GameBoardPallettes = {
+      static constexpr Palettes GameBoardPallettes = {
           WHITE,
           {Color{Color::Light, Color::Yellow},
-           Color{Color::Medium, Color::Gray},
-           Color{}}};
+           Color{Color::Medium, Color::Gray}, Color{}},
+          {Color{Color::Medium, Color::Violet}, Color{}}};
 
       static void
-      load_pallettes(const Pallettes &pallettes) {
+      load_pallettes(const Palettes &pallettes) {
         set_background_color<0>(pallettes.background_color);
         for (uint8_t i = 0; i < 4; i += 1) {
           PPU::copy(PPU::PALETTE_BACKGROUND[i], &pallettes.background[i].colors[0],
-                    sizeof(Pallette));
+                    sizeof(Palette));
         }
         for (uint8_t i = 0; i < 4; i += 1) {
           PPU::copy(PPU::PALETTE_SPRITE[i], &pallettes.sprite[i].colors[0],
-                    sizeof(Pallette));
+                    sizeof(Palette));
         }
       }
 
@@ -97,8 +102,8 @@ namespace nes {
         ppu.set_render_control(PPU::render_off);
       }
 
-      static void enable_render_background() {
-        ppu.set_render_control(PPU::enable_bg);
+      static void render_on() {
+        ppu.set_render_control(PPU::enable_bg|PPU::enable_sprite);
       }
 
       template <size_t BgColor> static void set_background_color(Color c) {
@@ -152,6 +157,55 @@ namespace nes {
         PPU::fill(ppu_coord_addr(x, y), tile, len);
       }
 
+      struct sprite_pattern {
+        tile_type tile;
+        palette_index palette;
+        std::uint8_t number_of_frames;
+      };
+
+      static constexpr sprite_pattern Cursor{Flag, PALETTE_0, 1};
+
+      struct sprite {
+      public:
+        // offsets of the 'sprite' origin from the 'background origin'
+        // not needed on NES?
+        static constexpr std::uint8_t sprite_x_offset = 0;
+        static constexpr std::uint8_t sprite_y_offset = 0;
+
+        void enable(bool) {
+          // sprites are always enabled.  Hide them by moving them off-screen
+        }
+
+        void multicolor_enable(bool) {
+          // n/a
+        }
+
+        void position(std::uint16_t x, std::uint8_t y) {
+          oam.set_sprite_position(active_number, x, y);
+        }
+
+        void expand(bool, bool) {
+          // no effect.
+        }
+
+        void activate(std::uint8_t sprite_number,
+                      const sprite_pattern &pattern,
+                      bool behind_background) {
+          active_number = sprite_number;
+          oam.set_sprite_tile_index(sprite_number, static_cast<std::uint8_t>(pattern.tile));
+          oam.set_sprite_attributes(sprite_number, pattern.palette,
+                                    behind_background ? OAM::behind_background
+                                                      : OAM::no_attributes);
+        }
+
+        void select_frame(const sprite_pattern &pattern, std::uint8_t frame) {
+          oam.set_sprite_tile_index(active_number, static_cast<std::uint8_t>(pattern.tile)+frame);
+        }
+
+      protected:
+        OAM::slot_t active_number = 0;
+      };
+
       static void finish_rendering() {
 
         // Multi-byte updates.
@@ -169,7 +223,9 @@ namespace nes {
         }
 
         tile_updates_size = 0;
-        
+
+        oam_dma.load_oam(oam);
+
         // must always reset before the frame starts... the on-screen rendering uses the address
         // register to determine where to read the tiles from!
         ppu.set_ppu_address(PPU::NAME_TABLE_0);

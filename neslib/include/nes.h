@@ -8,13 +8,83 @@
 #include <string.h>
 
 namespace nes {
-  
+
+  enum palette_index : std::uint8_t {
+    PALETTE_0 = 0,
+    PALETTE_1 = 1,
+    PALETTE_2 = 2,
+    PALETTE_3 = 3
+  };
+
+  struct oam_entry {
+    std::uint8_t y;
+    std::uint8_t tile_index;
+    std::byte    attributes;
+    std::uint8_t x;
+  };
+
+  static_assert(sizeof(oam_entry) == 4);
+  static_assert(offsetof(oam_entry, x) == 3);
+
+  class alignas(256) OAM {
+  public:
+    using slot_t = std::uint8_t;
+
+    void set_sprite_position(slot_t slot, std::uint8_t x, std::uint8_t y) {
+      auto & entry = entries[slot];
+      entry.x = x;
+      entry.y = y;
+    }
+
+    void set_sprite_tile_index(slot_t slot, std::uint8_t tile) {
+      entries[slot].tile_index = tile;
+    }
+
+    enum sprite_attributes : std::uint8_t {
+      no_attributes = 0,
+      behind_background = 0b00100000,
+      flip_horizontally = 0b01000000,
+      flip_vertically = 0b10000000
+    };
+
+    void set_sprite_attributes(slot_t slot, palette_index palette, sprite_attributes attr) {
+      entries[slot].attributes = static_cast<std::byte>(
+          static_cast<std::uint8_t>(palette) | static_cast<std::uint8_t>(attr));
+    }
+
+    void hide_all_sprites() {
+      for (auto & entry : entries) {
+        entry.y = 0xff;
+      }
+    }
+
+  private:
+    oam_entry entries[64];
+  };
+
+  OAM::sprite_attributes operator|(OAM::sprite_attributes left, OAM::sprite_attributes right) {
+    return static_cast<OAM::sprite_attributes>(static_cast<std::uint8_t>(left) | static_cast<std::uint8_t>(right));
+  }
+
+  struct oam_dma_register {
+    volatile std::uint8_t oam_addr_hi;
+  };
+
+  class OAMDMA : private oam_dma_register {
+  public:
+    void load_oam(const OAM & oam) volatile {
+      oam_addr_hi = static_cast<std::uint8_t>(reinterpret_cast<std::uint16_t>(&oam) >> 8);
+    }
+  };
+
+  inline auto &oam_dma = *(reinterpret_cast<volatile OAMDMA *>(0x4014));
+
   struct PPURegisters {
     volatile std::byte PPUCTRL;
     volatile std::byte PPUMASK;
     volatile std::byte PPUSTATUS;
-    std::byte OAMADDR;
-    std::byte OAMDATA;
+    volatile std::byte OAMADDR;
+    volatile std::byte OAMDATA;
     volatile std::byte PPUSCROLL;
     volatile std::byte PPUADDR;
     volatile std::byte PPUDATA;
@@ -43,7 +113,7 @@ namespace nes {
     };
 
     void set_render_control(render_bits maskbits) volatile {
-      PPUMASK = std::byte{maskbits};
+      PPUMASK = static_cast<std::byte>(maskbits);
     }
 
     struct reference {
@@ -87,7 +157,7 @@ namespace nes {
   };
 
   PPU::render_bits operator|(PPU::render_bits left, PPU::render_bits right) {
-    return static_cast<PPU::render_bits>(left | right);
+    return static_cast<PPU::render_bits>(static_cast<std::uint8_t>(left) | static_cast<std::uint8_t>(right));
   }
 
   inline auto &ppu = *(reinterpret_cast<volatile PPU *>(&::PPUCTRL));

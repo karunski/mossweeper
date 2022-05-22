@@ -17,18 +17,10 @@ std::uint8_t game_rows = 0;
 std::uint8_t game_columns = 0;
 std::uint8_t mines = 0;
 
+target::graphics::sprite cursor;
+std::uint8_t cursor_anim_frame = 0;
+
 #ifdef PLATFORM_C64
-
-  template <std::uint8_t Slot, std::uint8_t Frames>
-  struct Sprite : public target::graphics::sprite
-  {
-    static constexpr std::uint8_t slot = Slot;
-    static constexpr std::uint8_t frames = Frames;
-  };
-
-  target::graphics::sprite cursor;
-  std::uint8_t cursor_anim_frame = 0;
-
   target::graphics::sprite sprite_background;
 #endif
 
@@ -232,7 +224,6 @@ std::uint8_t mines = 0;
       return TopBoardLimit() + rows - 1;
     }
 
-#ifdef PLATFORM_C64
     static std::uint16_t tile_to_sprite_x(std::uint8_t tile_x) {
       return target::graphics::sprite::sprite_x_offset + (unsigned{tile_x} << 3u);
     }
@@ -248,7 +239,6 @@ std::uint8_t mines = 0;
     static std::uint8_t selection_to_sprite_y(std::uint8_t tile_y) {
       return tile_to_sprite_y(board_pos.Y + TopBoardLimit() + tile_y);
     }
-#endif
 
     static std::uint8_t reset_button_x() {
       return board_pos.X + 1 + (game_columns / 2) - (GameBoardTraits::Happy.width / 2);
@@ -767,7 +757,6 @@ std::uint8_t mines = 0;
     std::uint8_t down_count : 7;
   };
 
-#ifdef PLATFORM_C64
   class CursorAnimateFunc {
   public:
     void operator()() {
@@ -786,8 +775,6 @@ std::uint8_t mines = 0;
       cursor.select_frame(target::graphics::Cursor, cursor_anim_frame);
     }
   };
-
-#endif
 
   class ScoreUpdate {
     public:
@@ -824,9 +811,7 @@ std::uint8_t mines = 0;
     }
   }
 
-#ifdef PLATFORM_C64
   CursorAnimateFunc cursor_animator;
-#endif
 
   FireButtonEventFilter fire_button_handler;
 
@@ -1061,13 +1046,11 @@ std::uint8_t mines = 0;
                 game_columns)
             .right(direction_events.d);
 
-#ifdef PLATFORM_C64
     cursor.position(GameBoardDrawer::selection_to_sprite_x(current_selected.X),
                     GameBoardDrawer::selection_to_sprite_y(current_selected.Y));
     cursor.expand(false, false);
 
     cursor_animator();
-#endif
 
     score_updater();
 
@@ -1267,7 +1250,7 @@ std::uint8_t mines = 0;
       c64::Note{c64::SIDVoice::triangle, c64::Note::C_5, 5},
   };
 #endif
-} // namespace
+  } // namespace
 
 int main()
 {
@@ -1282,17 +1265,15 @@ int main()
   target::graphics::render_off();
   target::clear_screen();
 
-#ifdef PLATFORM_C64
-
   // cursor shall be sprite 0.
-  cursor.activate(0, target::graphics::Cursor);
+  cursor.activate(0, target::graphics::Cursor, false);
   cursor.enable(true);
-  cursor.data_priority(false);
   cursor.multicolor_enable(false);
 
-  sprite_background.activate(7, target::graphics::SpriteBackground);
+#ifdef PLATFORM_C64
+
+  sprite_background.activate(7, target::graphics::SpriteBackground, true);
   sprite_background.enable(true);
-  sprite_background.data_priority(true);
   sprite_background.multicolor_enable(false);
 
 #endif
@@ -1300,7 +1281,7 @@ int main()
   current_mode->on_init(nullptr);
   vsync_waiter();
   target::graphics::finish_rendering();
-  target::graphics::enable_render_background();
+  target::graphics::render_on();
 
   srand(target::seed_rng());
 
@@ -1330,7 +1311,7 @@ int main()
       target::graphics::render_off();
       next_mode->on_init(current_mode);
       vsync_waiter();
-      target::graphics::enable_render_background();
+      target::graphics::render_on();
       current_mode = next_mode;
     }
 

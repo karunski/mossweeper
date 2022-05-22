@@ -106,7 +106,7 @@ struct target {
 
     static void render_off() { }// TODO / not needed 
 
-    static void enable_render_background() {
+    static void render_on() {
       // TODO / not needed
     }
 
@@ -151,7 +151,7 @@ struct target {
     }
 
     struct sprite_pattern {
-      std::uint8_t slot;
+      std::uint8_t slot; // location within the sprite memory area
       std::uint8_t number_of_frames;
       ColorCode sprite_color;
     };
@@ -175,10 +175,6 @@ struct target {
         c64::vic_ii.sprite_multicolor_enable.set(active_number, en);
       }
 
-      void data_priority(bool en) {
-        c64::vic_ii.sprite_data_priority.set(active_number, en);
-      }
-
       void position(std::uint16_t x, std::uint8_t y) {
         c64::vic_ii.set_sprite_pos(active_number, x, y);
       }
@@ -188,10 +184,11 @@ struct target {
         c64::vic_ii.sprite_y_expansion.set(active_number, y);
       }
 
-      void activate(std::uint8_t sprite_number, const sprite_pattern & pattern) {
+      void activate(std::uint8_t sprite_number, const sprite_pattern & pattern, bool behind_background) {
         active_number = sprite_number;
         c64::screen_ram.sprite_ptr(active_number) = sprite_data_ram[pattern.slot];
         c64::vic_ii.sprite_color[active_number] = pattern.sprite_color;
+        c64::vic_ii.sprite_data_priority.set(active_number, behind_background);
       }
 
       void select_frame(const sprite_pattern &pattern, std::uint8_t frame) {
