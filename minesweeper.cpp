@@ -912,7 +912,6 @@ std::uint8_t cursor_anim_frame = 0;
 
   AppModeSelectDifficulty::Difficulty AppModeSelectDifficulty::difficulty = AppModeSelectDifficulty::BEGINNER;
 
-#ifdef PLATFORM_C64
   struct AppModeDead : public AppMode {
     void on_init(AppMode *) override{}
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
@@ -922,16 +921,16 @@ std::uint8_t cursor_anim_frame = 0;
     void on_init(AppMode *) override {}
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
-#endif
 
   AppModeGame game_field;
 
   AppModeResetButton reset_selection;
-#ifdef PLATFORM_C64
   AppModeDead mode_dead;
   AppModeWin mode_win;
 
   constexpr AppMode * next_mode_win[2] = { &game_field, &mode_win};
+
+#ifdef PLATFORM_C64
 
   static constexpr c64::Note shoot_sfx[] = {
       {c64::SIDVoice::noise | c64::SIDVoice::gate, 0x28c8, 3},
@@ -1049,11 +1048,7 @@ std::uint8_t cursor_anim_frame = 0;
 
     const auto winning = game_state.hidden_clear == 0;
     game_state.time_running = !winning;
-#ifdef PLATFORM_C64
     return next_mode_win[winning];
-#else
-    return this;
-#endif
   }
 
   AppMode *
@@ -1164,7 +1159,6 @@ std::uint8_t cursor_anim_frame = 0;
 
   AppMode *current_mode = &difficulty_selection;
 
-#ifdef PLATFORM_C64
   AppMode * AppModeDead::on_vsync(FireButtonEventFilter::Event fire_button_events, key_scan_res) {
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
@@ -1214,6 +1208,7 @@ std::uint8_t cursor_anim_frame = 0;
     return this;
   }
 
+#ifdef PLATFORM_C64
   constexpr c64::Note scale[] = {
       {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_4, 25},
       {c64::SIDVoice::triangle, c64::Note::C_4, 5},

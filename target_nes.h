@@ -49,9 +49,12 @@ namespace nes {
 
       static constexpr Emoji Happy = {
           {{tile_type{2}, tile_type{3}}, {tile_type{0x11}, tile_type{0x12}}}};
-      static constexpr Emoji Caution = {
-          {{tile_type{0x04}, tile_type{0x05}},
-           {tile_type{0x13}, tile_type{0x14}}}};
+      static constexpr Emoji Caution = {{{tile_type{0x04}, tile_type{0x05}},
+                                         {tile_type{0x13}, tile_type{0x14}}}};
+      static constexpr Emoji Dead = {{{tile_type{0x06}, tile_type{0x07}},
+                                      {tile_type{0x15}, tile_type{0x16}}}};
+      static constexpr Emoji Win = {{{tile_type{0x08}, tile_type{0x09}},
+                                     {tile_type{0x11}, tile_type{0x12}}}};
 
       using Digit = MetaTile<tile_type, 1, 2>;
 
