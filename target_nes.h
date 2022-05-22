@@ -83,7 +83,9 @@ namespace nes {
           WHITE,
           {Color{Color::Light, Color::Yellow},
            Color{Color::Medium, Color::Gray}, Color{}},
-          {Color{Color::Medium, Color::Violet}, Color{}}};
+          {Color{Color::Dark, Color::Violet},
+           Color{Color::Medium, Color::Violet},
+           Color{Color::Pale, Color::Violet}}};
 
       static void
       load_pallettes(const Palettes &pallettes) {
@@ -163,7 +165,7 @@ namespace nes {
         std::uint8_t number_of_frames;
       };
 
-      static constexpr sprite_pattern Cursor{Flag, PALETTE_0, 1};
+      static constexpr sprite_pattern Cursor{tile_type{0x2a}, PALETTE_0, 7};
 
       struct sprite {
       public:
