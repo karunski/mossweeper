@@ -168,9 +168,8 @@ namespace nes {
       struct sprite {
       public:
         // offsets of the 'sprite' origin from the 'background origin'
-        // not needed on NES?
         static constexpr std::uint8_t sprite_x_offset = 0;
-        static constexpr std::uint8_t sprite_y_offset = 0;
+        static constexpr std::int8_t sprite_y_offset = -2;
 
         void enable(bool) {
           // sprites are always enabled.  Hide them by moving them off-screen

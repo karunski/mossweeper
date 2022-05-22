@@ -873,13 +873,10 @@ std::uint8_t cursor_anim_frame = 0;
   TilePoint AppModeGame::current_selected{0, 0};
   bool AppModeGame::suppress_expose = false;
 
-#ifdef PLATFORM_C64
   struct AppModeResetButton : public AppMode {
     void on_init(AppMode *) override{}
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
-
-#endif
 
   struct AppModeSelectDifficulty : public AppMode {
 
@@ -929,8 +926,8 @@ std::uint8_t cursor_anim_frame = 0;
 
   AppModeGame game_field;
 
-#ifdef PLATFORM_C64
   AppModeResetButton reset_selection;
+#ifdef PLATFORM_C64
   AppModeDead mode_dead;
   AppModeWin mode_win;
 
@@ -1028,11 +1025,7 @@ std::uint8_t cursor_anim_frame = 0;
 
     if ((direction_events.w && current_selected.Y == 0) ||
         (direction_events.s && current_selected.Y == game_rows - 1)) {
-#ifdef PLATFORM_C64
       return &reset_selection;
-#else
-      return this;
-#endif
     }
 
     current_selected =
@@ -1062,8 +1055,6 @@ std::uint8_t cursor_anim_frame = 0;
     return this;
 #endif
   }
-
-#ifdef PLATFORM_C64
 
   AppMode *
   AppModeResetButton::on_vsync(FireButtonEventFilter::Event fire_button_events,
@@ -1100,7 +1091,6 @@ std::uint8_t cursor_anim_frame = 0;
     
     return this;
   }
-#endif
 
   AppMode *AppModeSelectDifficulty::on_vsync(
       FireButtonEventFilter::Event fire_button_events,
