@@ -27,19 +27,21 @@ namespace nes {
       enum class tile_type : std::uint8_t {
       };
 
-      static constexpr auto BLANK = static_cast<tile_type>(0x1);
-      static constexpr auto LetterA = static_cast<tile_type>(0x40);
-      static constexpr auto SelectArrow = static_cast<tile_type>(0x29);
-      static constexpr auto TopLeft = static_cast<tile_type>(0xA);
-      static constexpr auto TopBorder = static_cast<tile_type>(0xB);
-      static constexpr auto BottomLeft = static_cast<tile_type>(0xF);
-      static constexpr auto BottomBorder = static_cast<tile_type>(0x10);
-      static constexpr auto LeftBorder = static_cast<tile_type>(0xE);
-      static constexpr auto RightBorder = static_cast<tile_type>(0xD);
-      static constexpr auto TopRight = static_cast<tile_type>(0xC);
-      static constexpr auto BottomRight = static_cast<tile_type>(0x17);
-      static constexpr auto HiddenSquare = static_cast<tile_type>(0x0);
+      static constexpr tile_type BLANK{0x1};
+      static constexpr tile_type LetterA{0x40};
+      static constexpr tile_type SelectArrow{0x29};
+      static constexpr tile_type TopLeft{0xA};
+      static constexpr tile_type TopBorder{0xB};
+      static constexpr tile_type BottomLeft{0xF};
+      static constexpr tile_type BottomBorder{0x10};
+      static constexpr tile_type LeftBorder{0xE};
+      static constexpr tile_type RightBorder{0xD};
+      static constexpr tile_type TopRight{0xC};
+      static constexpr tile_type BottomRight{0x17};
+      static constexpr tile_type HiddenSquare{0x0};
+      static constexpr tile_type Wrong{0x28}; 
       static constexpr tile_type Flag{0x27};
+      static constexpr tile_type Mine{0x26};
 
       static constexpr std::uint8_t ScreenWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
@@ -64,6 +66,10 @@ namespace nes {
           {{tile_type{0x6c}, tile_type{0x7b}}}, {{tile_type{0x6d}, tile_type{0x7c}}},
           {{tile_type{0x6e}, tile_type{0x7d}}}, {{tile_type{0x6f}, tile_type{0x7e}}},
           {{tile_type{0x70}, tile_type{0x7f}}}, {{tile_type{0x72}, tile_type{0x81}}}};
+
+      static constexpr auto NumberMarker(std::uint8_t idx) {
+        return static_cast<tile_type>(0x1D + idx);
+      }
 
       struct Palette {
         Color colors[3];

@@ -384,8 +384,6 @@ std::uint8_t cursor_anim_frame = 0;
 
   using GameBoardDrawer = GameBoardDraw<target::graphics>;
 
-#ifdef PLATFORM_C64
-
   bool bad_flag_at(const TilePoint & selection) {
     const auto flagged = game_state.is_flagged(selection);
     const auto is_mine = game_state.count_mine(selection);
@@ -595,9 +593,8 @@ std::uint8_t cursor_anim_frame = 0;
         filter_already_exposed(board_selection_optional.down()));
   }
 
-  struct ExposeResultNext : public ExposeResultContinuation {
+  struct ExposeResultNext final : public ExposeResultContinuation {
     expose_result operator()() const override {
-
       static constexpr std::uint8_t MAX_EXPOSE_PER_ITER = 1;
       std::uint8_t exposed = 0;
 
@@ -698,7 +695,6 @@ std::uint8_t cursor_anim_frame = 0;
 
     return {true, nullptr};
   }
-#endif // C64
 
   struct ClockUpdater {
     std::uint8_t frames_per_second = 0;
@@ -864,6 +860,8 @@ std::uint8_t cursor_anim_frame = 0;
 
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
 
+    static bool continue_expose_events();
+
     static TilePoint current_selected;
     // Keeps track of cases where we are clearing a flag and don't want
     // to expose on fire-up.
@@ -946,30 +944,40 @@ std::uint8_t cursor_anim_frame = 0;
       {c64::SIDVoice::ControlFlags{}, 0, 1}};
 #endif
 
+  bool AppModeGame::continue_expose_events() {
+    // "expose" means we are figuring out which tiles need to be automatically
+    // opened up because there are no mines around them. Figuring out which
+    // ones are like this can take a long time, so we split the operation up
+    // into a sequence of function calls that expose only a few tiles per frame.
+    // Each of these function object pointers is stored in
+    // game_state.expose_continuation for the current frame.
+    if (!game_state.expose_continuation) {
+      return true;
+    }
+
+    // avoid virtual function call to work-around lack of stack on NES.
+    // clang currently always requires the stack for that function call??
+    if (game_state.expose_continuation == &expose_must_continue) {
+      const auto expose_res =
+          expose_must_continue(); //(*game_state.expose_continuation)();
+      game_state.expose_continuation = expose_res.next_expose;
+      if (!expose_res.is_ok) {
+        return false;
+      }
+      suppress_expose = game_state.expose_continuation != nullptr;
+      return true;
+    }
+
+    return true; // 
+  }
+
   AppMode *
   AppModeGame::on_vsync(FireButtonEventFilter::Event fire_button_events,
                         key_scan_res direction_events) {
 
-    // "expose" means we are figuring out which tiles need to be automatically
-    // opened up because there are no mines around them. Figuring out which
-    // ones are like this can take a long time, so we split the operation up 
-    // into a sequence of function calls that expose only a few tiles per frame.
-    // Each of these function object pointers is stored in game_state.expose_continuation
-    // for the current frame.
-    if (game_state.expose_continuation)
-    {
-#ifdef PLATFORM_C64
-
-      const auto [is_ok, next_expose] = (*game_state.expose_continuation)();
-      game_state.expose_continuation = next_expose;
-
-      if (!is_ok) {
-        game_state.time_running = false;
-        return &mode_dead;
-      }
-#endif
-
-      suppress_expose = game_state.expose_continuation != nullptr;
+    if (!continue_expose_events()) {
+      game_state.time_running = false;
+      return &mode_dead;
     }
 
     // on space bar released...
@@ -979,7 +987,6 @@ std::uint8_t cursor_anim_frame = 0;
         suppress_expose = false;
       }
       else {
-#ifdef PLATFORM_C64
         const auto [is_ok, next_expose] = expose_recurse(current_selected, 0);
         game_state.expose_continuation = next_expose;
 
@@ -987,7 +994,6 @@ std::uint8_t cursor_anim_frame = 0;
           game_state.time_running = false;
           return &mode_dead;
         }
-#endif
       }
       GameBoardDrawer::DrawResetButtonHappy();
       game_state.time_running = true;
