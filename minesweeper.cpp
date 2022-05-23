@@ -723,9 +723,9 @@ std::uint8_t cursor_anim_frame = 0;
       RELEASE,
     };
 
-    Event operator()(const bool current_state) {
+    Event operator()(const key_scan_res current_state) {
       if (pressed) {
-        if (current_state) {
+        if (current_state.space) {
           pressed = true;
           down_count += 1;
           if (down_count >= (clock_updater.frames_per_second >> 1)) {
@@ -739,18 +739,30 @@ std::uint8_t cursor_anim_frame = 0;
           return RELEASE;
         }
       } else {
-        pressed = current_state;
-        if (current_state) {
+        pressed = current_state.space;
+        if (current_state.space) {
           return PRESS;
         }
-
-        return NO_EVENT;
       }
+
+      // second button / 'b' button can only generate a 'long_press' event, on button up.aa
+      if (secondary_pressed) {
+        if (!current_state.fire_secondary) {
+          secondary_pressed = false;
+          return LONG_PRESS;
+        }
+      }
+      else{
+        secondary_pressed = current_state.fire_secondary;
+      }
+
+      return NO_EVENT;
     }
 
   private:
-    bool pressed : 1;
-    std::uint8_t down_count : 7;
+    bool pressed:1;
+    bool secondary_pressed:1;
+    std::uint8_t down_count;
   };
 
   class CursorAnimateFunc {
@@ -968,7 +980,7 @@ std::uint8_t cursor_anim_frame = 0;
       return true;
     }
 
-    return true; // 
+    return true;  
   }
 
   AppMode *
@@ -1295,7 +1307,7 @@ int main()
     static key_scan_res keys;
     keys = target::check_keys();
 
-    const auto next_mode = current_mode->on_vsync(fire_button_handler(keys.space),
+    const auto next_mode = current_mode->on_vsync(fire_button_handler(keys),
                                           direction_event_filter(keys));
     if (next_mode != current_mode) {
       vsync_waiter();

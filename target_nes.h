@@ -294,7 +294,7 @@ namespace nes {
       key_scan_res result;
       nes::controller_1.stop_sample();
       result.space = nes::controller_1.read_d0_bit();
-      /* b button = */ nes::controller_1.read_d0_bit();
+      result.fire_secondary = nes::controller_1.read_d0_bit();
       /* select = */ nes::controller_1.read_d0_bit();
       /* start = */ nes::controller_1.read_d0_bit();
       result.w = nes::controller_1.read_d0_bit();
