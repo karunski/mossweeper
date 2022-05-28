@@ -123,6 +123,9 @@ namespace nes {
       template<class T>
       T operator=(T val) { return assign_byte(val); }
 
+      template<class T>
+      T fetch_byte() const;
+
       std::uint16_t ptr;
     };
 
@@ -143,6 +146,9 @@ namespace nes {
     }
 
     void store_data(std::byte b) volatile { PPUDATA = b; }
+    std::byte load_data() volatile const {
+      return PPUDATA;
+    }
 
     void set_scroll(std::uint8_t x, std::uint8_t y) volatile {
       PPUSCROLL = static_cast<std::byte>(x);
@@ -169,6 +175,17 @@ namespace nes {
     memcpy(&temp, &b, 1);
     ppu.set_ppu_address(pointer{ptr});
     ppu.store_data(temp);
+    return b;
+  }
+
+  template<class T>
+  T PPU::reference::fetch_byte() const {
+    static_assert(sizeof(T) == 1, "only byte width loads from PPUDATA");
+    ppu.set_ppu_address(pointer{ptr});
+    ppu.load_data(); // discard first vram read after setting address.
+    std::byte temp = ppu.load_data();
+    T b;
+    memcpy(&b, &temp, 1);
     return b;
   }
 

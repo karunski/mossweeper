@@ -246,24 +246,17 @@ std::uint8_t cursor_anim_frame = 0;
 
     static std::uint8_t reset_button_y() { return board_pos.Y + 1; }
 
-    template<std::uint8_t len>
-    static void DrawString(const TilePattern<TileType, len> & pattern, std::uint8_t x,
-                             std::uint8_t y) {
+    template <std::uint8_t len>
+    static void
+    DrawString(const TilePattern<target::graphics::chr_code_type, len> &pattern,
+               std::uint8_t x, std::uint8_t y) {
       GameBoardTraits::place_immediate(pattern.m_data, len, x, y);
     }
 
-    struct tile_to_char {
-      static constexpr auto call(char c) {
-        return c == ' ' ? GameBoardTraits::BLANK
-                        : static_cast<TileType>(static_cast<std::uint8_t>(
-                                                    GameBoardTraits::LetterA) +
-                                                (c - 'A'));
-      };
-    };
-
     template <uint8_t len>
     static constexpr auto GenerateTileString(const char (&str)[len]) {
-      return transform_string<TileType, tile_to_char>(str);
+      return transform_string<target::graphics::chr_code_type, target::graphics::tile_to_char>(
+          str);
     }
   };
 
@@ -899,12 +892,14 @@ std::uint8_t cursor_anim_frame = 0;
           GameBoardDrawer::GenerateTileString("INTERMEDIATE");
       static constexpr auto EXPERT =
           GameBoardDrawer::GenerateTileString("EXPERT");
+      target::graphics::render_off();
       target::clear_screen();
       target::graphics::load_pallettes(target::graphics::DifficultyScreenPallettes);
       GameBoardDrawer::DrawString(SELECT_DIFFICULTY, 1, 3);
       GameBoardDrawer::DrawString(BEGINNER, 5, 5);
       GameBoardDrawer::DrawString(INTERMEDIATE, 5, 7);
       GameBoardDrawer::DrawString(EXPERT, 5, 9);
+      target::graphics::render_on();
     }
 
     AppMode * on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
@@ -1075,7 +1070,9 @@ std::uint8_t cursor_anim_frame = 0;
     
     switch (fire_button_events) {
       case FireButtonEventFilter::RELEASE:
+        target::graphics::render_off();
         reset();
+        target::graphics::render_on();
         break;
       case FireButtonEventFilter::PRESS:
         GameBoardDrawer::DrawResetButtonCaution();
@@ -1130,6 +1127,9 @@ std::uint8_t cursor_anim_frame = 0;
                                    DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
       reset();
+      target::graphics::render_off();
+      game_field.on_init(this);
+      target::graphics::render_on();
       return &game_field;
       break;
     case FireButtonEventFilter::LONG_PRESS: 
@@ -1169,8 +1169,10 @@ std::uint8_t cursor_anim_frame = 0;
     target::graphics::load_pallettes(target::graphics::GameBoardPallettes);
 
     if (last_mode == &difficulty_selection) {
+      target::graphics::render_off();
       target::clear_screen();
       reset();
+      target::graphics::render_on();
       current_selected = TilePoint{};
     }
   }
@@ -1180,7 +1182,7 @@ std::uint8_t cursor_anim_frame = 0;
   AppMode * AppModeDead::on_vsync(FireButtonEventFilter::Event fire_button_events, key_scan_res) {
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
-      target::clear_screen();
+      difficulty_selection.on_init(this);
       return &difficulty_selection;
       break;
     case FireButtonEventFilter::LONG_PRESS:
@@ -1205,7 +1207,7 @@ std::uint8_t cursor_anim_frame = 0;
                                 key_scan_res) {
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
-      target::clear_screen();
+      difficulty_selection.on_init(this);
       return &difficulty_selection;
       break;
     case FireButtonEventFilter::LONG_PRESS:
@@ -1282,9 +1284,6 @@ int main()
 #endif
 
   current_mode->on_init(nullptr);
-  vsync_waiter();
-  target::graphics::finish_rendering();
-  target::graphics::render_on();
 
   srand(target::seed_rng());
 
@@ -1307,16 +1306,8 @@ int main()
     static key_scan_res keys;
     keys = target::check_keys();
 
-    const auto next_mode = current_mode->on_vsync(fire_button_handler(keys),
+    current_mode = current_mode->on_vsync(fire_button_handler(keys),
                                           direction_event_filter(keys));
-    if (next_mode != current_mode) {
-      vsync_waiter();
-      target::graphics::render_off();
-      next_mode->on_init(current_mode);
-      vsync_waiter();
-      target::graphics::render_on();
-      current_mode = next_mode;
-    }
 
     game_state.time_running && clock_updater();
 #ifdef PLATFORM_C64

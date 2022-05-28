@@ -39,6 +39,7 @@ struct target {
 
     using color_type = ColorCode;
     using tile_type = ScreenCode;
+    using chr_code_type = ScreenCode;
     using TileType = tile_type;
 
     using C64Emoji = MetaTile<ScreenCode, 2, 2>;
@@ -120,6 +121,14 @@ struct target {
     static void place_immediate(ScreenCode Tile, std::uint8_t x, std::uint8_t y) {
       place(Tile, x, y);
     }
+
+    struct tile_to_char {
+      static constexpr auto call(char c) {
+        return c == ' ' ? BLANK
+                        : static_cast<TileType>(
+                              static_cast<std::uint8_t>(LetterA) + (c - 'A'));
+      };
+    };
 
     static void place_immediate(const ScreenCode *string, std::uint8_t len,
                                 std::uint8_t x, std::uint8_t y) {
@@ -272,6 +281,7 @@ struct target {
         joystick_state.joystick_b != c64::JoyScanner::JoyScan::CLEAR) {
       return key_scan_res{
           c64::JoyScanner::JoyScan::BUTTON & joystick_state.joystick_a,
+          false, // secondary fire
           c64::JoyScanner::JoyScan::UP & joystick_state.joystick_a,
           c64::JoyScanner::JoyScan::LEFT & joystick_state.joystick_a,
           c64::JoyScanner::JoyScan::DOWN & joystick_state.joystick_a,
@@ -288,6 +298,7 @@ struct target {
     const auto right = scanRow0.KEY_CURSOR_RIGHT();
     const auto shift = scanRow1.KEY_LEFT_SHIFT() || scanRow6.KEY_RIGHT_SHIFT();
     return key_scan_res{scanRow7.KEY_SPACE() || scanRow0.KEY_RETURN(),
+                        false,
                         scanRow1.KEY_W() || (down && shift),
                         scanRow1.KEY_A() || (right && shift),
                         scanRow1.KEY_S() || (down && !shift),
