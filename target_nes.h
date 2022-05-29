@@ -205,6 +205,7 @@ namespace nes {
       static constexpr std::uint8_t ScreenWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
       static constexpr std::uint8_t ScoreRows = 2;
+      static constexpr std::uint8_t ScoreSize = 4;
 
       using Emoji = MetaTile<tile_type, 2, 2>;
 
@@ -527,7 +528,7 @@ namespace nes {
         std::uint16_t nametable_offset;
       };
 
-      static constexpr std::uint8_t TILE_UPDATES_MAX = 15;
+      static constexpr std::uint8_t TILE_UPDATES_MAX = 20;
       static TileUpdate tile_updates[TILE_UPDATES_MAX];
       static std::uint8_t tile_updates_size;
 
@@ -537,9 +538,9 @@ namespace nes {
         std::uint8_t offset;
       };
 
-      static constexpr std::uint8_t ATTR_UPDATES_MAX = 10;
-      static AttrUpdate attr_updates[ATTR_UPDATES_MAX];
-      static std::uint8_t attr_updates_size;
+      // static constexpr std::uint8_t ATTR_UPDATES_MAX = 10;
+      // static AttrUpdate attr_updates[ATTR_UPDATES_MAX];
+      // static std::uint8_t attr_updates_size;
 
       constexpr static PPU::pointer ppu_coord_addr(std::uint8_t x, std::uint8_t y) {
         return PPU::NAME_TABLE_0 + (y * 32 + x);
@@ -612,9 +613,9 @@ namespace nes {
   inline target::graphics::TileUpdate
       target::graphics::tile_updates[target::graphics::TILE_UPDATES_MAX];
 
-  inline std::uint8_t target::graphics::attr_updates_size = 0;
-  inline target::graphics::AttrUpdate
-      target::graphics::attr_updates[target::graphics::ATTR_UPDATES_MAX];
+  // inline std::uint8_t target::graphics::attr_updates_size = 0;
+  // inline target::graphics::AttrUpdate
+  //     target::graphics::attr_updates[target::graphics::ATTR_UPDATES_MAX];
 }
 
 using target = nes::target;

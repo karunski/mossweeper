@@ -7,6 +7,7 @@
 #include "rand.h"
 #include "tile_model.h"
 #include "input_model.h"
+#include "algorithm_impl.h"
 
 namespace {
 
@@ -54,10 +55,24 @@ std::uint8_t cursor_anim_frame = 0;
     bool is_valid = false;
   };
 
-  template<class GameBoardTraits>
+  template <bool immediate> struct PlaceTile;
+
+  template <> struct PlaceTile<true> {
+    static void at(target::graphics::tile_type tile, std::uint8_t x, std::uint8_t y) {
+      target::graphics::place_immediate(tile, x, y);
+    }
+  };
+
+  template <> struct PlaceTile<false> {
+    static void at(target::graphics::tile_type tile, std::uint8_t x, std::uint8_t y) {
+      target::graphics::place(tile, x, y);
+    }
+  };
+
   class GameBoardDraw
   {
-    using TileType = typename GameBoardTraits::tile_type;
+    using Traits = target::graphics;
+    using TileType = Traits::tile_type;
 
     template <class LeftCornerType, class MiddleType, class RightCornerType>
     static void DrawBorderRow(std::uint8_t currentRow,
@@ -65,54 +80,37 @@ std::uint8_t cursor_anim_frame = 0;
                               MiddleType middle,
                               RightCornerType rightcorner) {
       DrawTile<true>(leftcorner, board_pos.X, currentRow);
-      FillHorizontal(middle, board_pos.X+LeftBorderWidth, currentRow, game_columns);
+      FillHorizontal(middle, board_pos.X+LeftBorderWidth, currentRow, game_width);
       DrawTile<true>(
-          rightcorner, board_pos.X + LeftBorderWidth + game_columns, currentRow);
+          rightcorner, board_pos.X + LeftBorderWidth + game_width, currentRow);
     }
 
     static void DrawSideBorders(std::uint8_t currentRow)
     {
-      DrawTile<true>(GameBoardTraits::LeftBorder, board_pos.X, currentRow);
-      GameBoardTraits::place_immediate(GameBoardTraits::RightBorder,
-                                       board_pos.X + LeftBorderWidth + game_columns,
-                                       currentRow);
+      DrawTile<true>(Traits::LeftBorder, board_pos.X, currentRow);
+      Traits::place_immediate(Traits::RightBorder,
+                              board_pos.X + LeftBorderWidth + game_width,
+                              currentRow);
     }
 
     static void DrawHidden(std::uint8_t currentRow)
     {
-      GameBoardTraits::fill_immediate(GameBoardTraits::HiddenSquare,
-                                      board_pos.X + LeftBorderWidth, currentRow,
-                                      game_columns);
+      Traits::fill_immediate(Traits::HiddenSquare,
+                             board_pos.X + LeftBorderWidth + pad_left, currentRow,
+                             game_columns);
     }
 
     static void FillHorizontal(TileType tile, std::uint8_t x, std::uint8_t y, std::uint8_t len) {
-      GameBoardTraits::fill_immediate(tile, x, y, len);
+      Traits::fill_immediate(tile, x, y, len);
     }
 
     template<std::uint8_t height>
     static void FillHorizontal(MetaTile<TileType, 1, height> tile, std::uint8_t x, std::uint8_t y,
                                std::uint8_t len) {
       for (std::uint8_t i = 0; i < height; i += 1) {
-        GameBoardTraits::fill_immediate(tile.tiles[i][0], x, y+i, len);
+        Traits::fill_immediate(tile.tiles[i][0], x, y + i, len);
       }
     }
-
-    template<bool immediate>
-    struct PlaceTile;
-
-    template <> struct PlaceTile<true> {
-      static void at(TileType tile, std::uint8_t x,
-                     std::uint8_t y) {
-        GameBoardTraits::place_immediate(tile, x, y);
-      }
-    };
-
-    template <> struct PlaceTile<false> {
-      static void at(TileType tile, std::uint8_t x,
-                     std::uint8_t y) {
-        GameBoardTraits::place(tile, x, y);
-      }
-    };
 
     template <bool immediate, std::uint8_t width, std::uint8_t height>
     static void DrawTile(
@@ -134,38 +132,57 @@ std::uint8_t cursor_anim_frame = 0;
     }
 
     static void CenterBoardOnScreen() {
+      game_width = std::max(
+          game_columns,
+          static_cast<std::uint8_t>(Traits::ScoreSize * 2 +
+              Width<std::decay_t<decltype(target::graphics::Happy)>>::value));
+      const auto pad = game_width - game_columns;
+      pad_left = pad / 2;
+      pad_right = pad - pad_left;
+
       board_pos.X =
-          (GameBoardTraits::ScreenWidth -
-           (game_columns + LeftBorderWidth +
-            1)) /
-          2;
+          (Traits::ScreenWidth - (game_columns + LeftBorderWidth + 1)) / 2;
       board_pos.X -= (board_pos.X & 0b1);
-        
-      board_pos.Y = (GameBoardTraits::ScreenHeight -
-                     (game_rows + GameBoardTraits::ScoreRows +
-                      TopBorderHeight +
-                      BottomBorderHeight)) /
-                    2;
+
+      pad_bottom = (game_rows & 0b1);
+      game_height = pad_bottom + game_rows;
+      board_pos.Y =
+          (Traits::ScreenHeight - (game_height + Traits::ScoreRows +
+                                   TopBorderHeight + BottomBorderHeight)) /
+          2;
       board_pos.Y -= (board_pos.Y & 0b1);
     }
 
     static TilePoint board_pos;
+    static std::uint8_t
+        game_width; // internal width of game board, including padding;
+    static std::uint8_t game_height; // height of board, including padding;
+    static std::uint8_t pad_left; // blank space between border and actual game
+    static std::uint8_t pad_right; //
+    static std::uint8_t pad_bottom; // pad the space between game board and score (1 or 0)
 
   public:
+
+    template<bool immediate>
     static void Draw000(std::uint8_t x_off, std::uint16_t val) {
-      DrawTile<false>(GameBoardTraits::ScoreDigits[val / 100], x_off,
-                      board_pos.Y + TopBorderHeight);
+      const std::uint8_t y_pos = board_pos.Y + TopBorderHeight;
+
+      for (std::uint8_t i = 3; i < Traits::ScoreSize; i += 1) {
+        DrawTile<immediate>(Traits::ScoreDigits[0], x_off++, y_pos);
+      }
+
+      DrawTile<immediate>(Traits::ScoreDigits[val / 100], x_off++, y_pos);
       val %= 100;
-      DrawTile<false>(GameBoardTraits::ScoreDigits[val / 10], x_off + 1,
-                      board_pos.Y + TopBorderHeight);
+      DrawTile<immediate>(Traits::ScoreDigits[val / 10], x_off++, y_pos);
       val %= 10;
-      DrawTile<false>(GameBoardTraits::ScoreDigits[val], x_off + 2,
-                      board_pos.Y + TopBorderHeight);
+      DrawTile<immediate>(Traits::ScoreDigits[val], x_off++, y_pos);
     }
 
     static TilePoint SelectionToTilePosition(const TilePoint & game_selection) {
-      return {static_cast<std::uint8_t>(board_pos.X + LeftBorderWidth + game_selection.X),
-              static_cast<std::uint8_t>(board_pos.Y + TopBorderHeight + GameBoardTraits::ScoreRows + game_selection.Y)};
+      return {static_cast<std::uint8_t>(board_pos.X + LeftBorderWidth + pad_left +
+                                        game_selection.X),
+              static_cast<std::uint8_t>(board_pos.Y + TopBorderHeight +
+                                        Traits::ScoreRows + game_selection.Y)};
     }
 
     static void SetGameSize(std::uint8_t rows, std::uint8_t columns) {
@@ -174,8 +191,6 @@ std::uint8_t cursor_anim_frame = 0;
       CenterBoardOnScreen();
     }
 
-    using Traits = GameBoardTraits;
-
     static constexpr std::uint8_t TopBorderHeight =
         Height<std::decay_t<decltype(Traits::TopBorder)>>::value;
     static constexpr std::uint8_t BottomBorderHeight =
@@ -183,18 +198,19 @@ std::uint8_t cursor_anim_frame = 0;
     static constexpr std::uint8_t LeftBorderWidth = 
         Width<std::decay_t<decltype(Traits::LeftBorder)>>::value;
     static_assert(LeftBorderWidth == Width<std::decay_t<decltype(Traits::TopLeft)>>::value);
+    static_assert(Traits::ScoreSize >= 3);
 
     static void DrawBoard() {
       static std::uint8_t currentRow;
 
       currentRow = board_pos.Y;
 
-      DrawBorderRow(currentRow, GameBoardTraits::TopLeft,
-                    GameBoardTraits::TopBorder, GameBoardTraits::TopRight);
+      DrawBorderRow(currentRow, Traits::TopLeft, Traits::TopBorder,
+                    Traits::TopRight);
 
       currentRow += TopBorderHeight;
 
-      for (std::uint8_t i = 0; i < GameBoardTraits::ScoreRows; i += 1) {
+      for (std::uint8_t i = 0; i < Traits::ScoreRows; i += 1) {
         DrawSideBorders(currentRow);
         currentRow += 1;
       }
@@ -205,80 +221,77 @@ std::uint8_t cursor_anim_frame = 0;
         currentRow += 1;
       }
 
-      DrawBorderRow(currentRow, GameBoardTraits::BottomLeft,
-                    GameBoardTraits::BottomBorder,
-                    GameBoardTraits::BottomRight);
+      for (std::uint8_t i = 0; i < pad_bottom; i += 1) {
+        DrawSideBorders(currentRow);
+        currentRow += 1;
+      }
+
+      DrawBorderRow(currentRow, Traits::BottomLeft, Traits::BottomBorder,
+                    Traits::BottomRight);
 
       DrawResetButtonHappy();
 
-      Draw000(board_pos.X + LeftBorderWidth, 0);
-      Draw000(board_pos.X + LeftBorderWidth + game_columns - 3, 0);
+      Draw000<true>(board_pos.X + LeftBorderWidth, 0);
+      Draw000<true>(board_pos.X + LeftBorderWidth + game_width - Traits::ScoreSize, 0);
     }
 
     static void DrawScore(std::uint8_t score) {
-      Draw000(board_pos.X + LeftBorderWidth, score);
+      Draw000<false>(board_pos.X + LeftBorderWidth, score);
     }
     static void DrawTime(std::uint16_t seconds) {
-      Draw000(board_pos.X + LeftBorderWidth + game_columns - 3, seconds);
+      Draw000<false>(board_pos.X + LeftBorderWidth + game_width - Traits::ScoreSize, seconds);
     }
 
     static void DrawResetButtonHappy() {
-      DrawTile<false>(GameBoardTraits::Happy, reset_button_x(), reset_button_y());
+      DrawTile<false>(Traits::Happy, reset_button_x(), reset_button_y());
     }
 
     static void DrawResetButtonCaution() {
-      DrawTile<false>(GameBoardTraits::Caution, reset_button_x(), reset_button_y());
+      DrawTile<false>(Traits::Caution, reset_button_x(), reset_button_y());
     }
 
     static void DrawResetButtonDead() {
-      DrawTile<false>(GameBoardTraits::Dead, reset_button_x(), reset_button_y());
+      DrawTile<false>(Traits::Dead, reset_button_x(), reset_button_y());
     }
 
     static void DrawResetButtonWin() {
-      DrawTile<false>(GameBoardTraits::Win, reset_button_x(), reset_button_y());
-    }
-
-    static void ExposeTile(const TilePoint & tile)
-    {
-      GameBoardTraits::place(
-          GameBoardTraits::ExposedSquare, SelectionToTilePosition(tile));
+      DrawTile<false>(Traits::Win, reset_button_x(), reset_button_y());
     }
 
     static void Mine(const TilePoint & tile)
     {
-      GameBoardTraits::place(GameBoardTraits::Mine, SelectionToTilePosition(tile));
+      Traits::place(Traits::Mine, SelectionToTilePosition(tile));
     }
 
     static void Wrong(const TilePoint & tile) {
-      GameBoardTraits::place(GameBoardTraits::Wrong,
-                             SelectionToTilePosition(tile));
+      Traits::place(Traits::Wrong, SelectionToTilePosition(tile));
     }
 
     static void Flag(const TilePoint & tile)
     {
-      GameBoardTraits::place(GameBoardTraits::Flag, SelectionToTilePosition(tile));
+      Traits::place(Traits::Flag, SelectionToTilePosition(tile));
     }
 
     static void Hide(const TilePoint & tile)
     {
-      GameBoardTraits::place(GameBoardTraits::HiddenSquare, SelectionToTilePosition(tile));
+      Traits::place(Traits::HiddenSquare, SelectionToTilePosition(tile));
     }
 
     static std::uint8_t ShowCount(std::uint8_t count, const TilePoint & where)
     {
-      GameBoardTraits::place(GameBoardTraits::NumberMarker(count),
-                             SelectionToTilePosition(where));
+      Traits::place(Traits::NumberMarker(count),
+                    SelectionToTilePosition(where));
       return count;
     }
 
-    static constexpr std::uint8_t LeftBoardLimit() { return LeftBorderWidth; }
-    static constexpr std::uint8_t RightBoardLimit(std::uint8_t columns) {
+    static std::uint8_t LeftBoardLimit() { return LeftBorderWidth + pad_left; }
+    static std::uint8_t RightBoardLimit(std::uint8_t columns) {
       return columns + LeftBoardLimit() - 1;
     }
-    static constexpr std::uint8_t TopBoardLimit() {
-      return GameBoardTraits::ScoreRows + TopBorderHeight;
+    static std::uint8_t TopBoardLimit() {
+      return Traits::ScoreRows + TopBorderHeight;
     }
-    static constexpr std::uint8_t BottomBoardLimit(std::uint8_t rows) {
+    static std::uint8_t BottomBoardLimit(std::uint8_t rows) {
       return TopBoardLimit() + rows - 1;
     }
 
@@ -299,7 +312,8 @@ std::uint8_t cursor_anim_frame = 0;
     }
 
     static std::uint8_t reset_button_x() {
-      return board_pos.X + LeftBorderWidth + (game_columns / 2) - (GameBoardTraits::Happy.width / 2);
+      return board_pos.X + LeftBorderWidth + (game_width / 2) -
+             (Traits::Happy.width / 2);
     }
 
     static std::uint8_t reset_button_y() {
@@ -308,20 +322,23 @@ std::uint8_t cursor_anim_frame = 0;
 
     template <std::uint8_t len>
     static void
-    DrawString(const TilePattern<target::graphics::chr_code_type, len> &pattern,
+    DrawString(const TilePattern<Traits::chr_code_type, len> &pattern,
                std::uint8_t x, std::uint8_t y) {
-      GameBoardTraits::place_immediate(pattern.m_data, len, x, y);
+      Traits::place_immediate(pattern.m_data, len, x, y);
     }
 
     template <uint8_t len>
     static constexpr auto GenerateTileString(const char (&str)[len]) {
-      return transform_string<target::graphics::chr_code_type, target::graphics::tile_to_char>(
-          str);
+      return transform_string<Traits::chr_code_type, Traits::tile_to_char>(str);
     }
   };
 
-  template <class GameBoardTraits>
-  TilePoint GameBoardDraw<GameBoardTraits>::board_pos{0, 0};
+  TilePoint GameBoardDraw::board_pos{0, 0};
+  std::uint8_t GameBoardDraw::game_width = 0; // internal width of game board, including padding;
+  std::uint8_t GameBoardDraw::game_height = 0; // internal height of game board, including padding;
+  std::uint8_t GameBoardDraw::pad_left = 0;  // left side padding (blank space between border and game)
+  std::uint8_t GameBoardDraw::pad_right = 0;
+  std::uint8_t GameBoardDraw::pad_bottom = 0;
 
   struct RowBits {
     std::byte m_bits[(COLUMNS_MAX >> 3) + static_cast<bool>(COLUMNS_MAX & 0x7)];
@@ -435,16 +452,15 @@ std::uint8_t cursor_anim_frame = 0;
 
   static GameState game_state{};
 
-  using GameBoardDrawer = GameBoardDraw<target::graphics>;
 
   bool bad_flag_at(const TilePoint & selection) {
     const auto flagged = game_state.is_flagged(selection);
     const auto is_mine = game_state.count_mine(selection);
     if (flagged && !is_mine) {
-      GameBoardDrawer::Wrong(selection);
+      GameBoardDraw::Wrong(selection);
     }
     else if (is_mine) {
-      GameBoardDrawer::Mine(selection);
+      GameBoardDraw::Mine(selection);
       return false;
     }
     return true;
@@ -657,7 +673,7 @@ std::uint8_t cursor_anim_frame = 0;
         const auto flagged = game_state.is_flagged(expose_target);
 
         if (game_state.count_mine(expose_target) && !flagged) {
-          GameBoardDrawer::Mine(expose_target);
+          GameBoardDraw::Mine(expose_target);
           return {false, nullptr};
         }
 
@@ -681,7 +697,7 @@ std::uint8_t cursor_anim_frame = 0;
           return {bad_around_selection(expose_target), nullptr};
         }
 
-        GameBoardDrawer::ShowCount(mine_count, expose_target);
+        GameBoardDraw::ShowCount(mine_count, expose_target);
         exposed += 1;
 
         game_state.hidden_clear -= 1;
@@ -715,7 +731,7 @@ std::uint8_t cursor_anim_frame = 0;
 
     const auto flagged = game_state.is_flagged(board_selection);
     if (game_state.count_mine(board_selection) && !flagged) {
-      GameBoardDrawer::Mine(board_selection);
+      GameBoardDraw::Mine(board_selection);
       return {false, nullptr};
     }
 
@@ -737,7 +753,7 @@ std::uint8_t cursor_anim_frame = 0;
       return {bad_around_selection(board_selection), nullptr};
     }
 
-    GameBoardDrawer::ShowCount(mine_count, board_selection);
+    GameBoardDraw::ShowCount(mine_count, board_selection);
 
     if (mine_count == 0 || (already_exposed && flag_count == mine_count)) {
       expose_buffer.clear();
@@ -758,7 +774,7 @@ std::uint8_t cursor_anim_frame = 0;
         current_frames = 0;
       }
 
-      GameBoardDrawer::DrawTime(game_state.timer);
+      GameBoardDraw::DrawTime(game_state.timer);
       return true;
     }
   };
@@ -840,7 +856,7 @@ std::uint8_t cursor_anim_frame = 0;
   class ScoreUpdate {
     public:
     void operator()() {
-      GameBoardDrawer::DrawScore(game_state.mines_left);
+      GameBoardDraw::DrawScore(game_state.mines_left);
     }
   };
 
@@ -848,7 +864,7 @@ std::uint8_t cursor_anim_frame = 0;
 
   void reset() {
 
-    GameBoardDrawer::DrawBoard();
+    GameBoardDraw::DrawBoard();
 
 #ifdef PLATFORM_C64
     sprite_background.position(
@@ -945,20 +961,20 @@ std::uint8_t cursor_anim_frame = 0;
 
     void on_init(AppMode *) override {
       static constexpr auto SELECT_DIFFICULTY =
-          GameBoardDrawer::GenerateTileString("SELECT DIFFICULTY ");
+          GameBoardDraw::GenerateTileString("SELECT DIFFICULTY ");
       static constexpr auto BEGINNER = 
-          GameBoardDrawer::GenerateTileString("BEGINNER");
+          GameBoardDraw::GenerateTileString("BEGINNER");
       static constexpr auto INTERMEDIATE = 
-          GameBoardDrawer::GenerateTileString("INTERMEDIATE");
+          GameBoardDraw::GenerateTileString("INTERMEDIATE");
       static constexpr auto EXPERT =
-          GameBoardDrawer::GenerateTileString("EXPERT");
+          GameBoardDraw::GenerateTileString("EXPERT");
       target::graphics::render_off();
       target::clear_screen();
       target::graphics::load_pallettes(target::graphics::DifficultyScreenPallettes);
-      GameBoardDrawer::DrawString(SELECT_DIFFICULTY, 1, 3);
-      GameBoardDrawer::DrawString(BEGINNER, 5, 5);
-      GameBoardDrawer::DrawString(INTERMEDIATE, 5, 7);
-      GameBoardDrawer::DrawString(EXPERT, 5, 9);
+      GameBoardDraw::DrawString(SELECT_DIFFICULTY, 1, 3);
+      GameBoardDraw::DrawString(BEGINNER, 5, 5);
+      GameBoardDraw::DrawString(INTERMEDIATE, 5, 7);
+      GameBoardDraw::DrawString(EXPERT, 5, 9);
       target::graphics::render_on();
     }
 
@@ -1062,7 +1078,7 @@ std::uint8_t cursor_anim_frame = 0;
           return &mode_dead;
         }
       }
-      GameBoardDrawer::DrawResetButtonHappy();
+      GameBoardDraw::DrawResetButtonHappy();
       game_state.time_running = true;
       break;
     case FireButtonEventFilter::LONG_PRESS: {
@@ -1071,11 +1087,11 @@ std::uint8_t cursor_anim_frame = 0;
 #ifdef PLATFORM_C64
           c64::MusicPlayer::play(0, false, flag_sfx);
 #endif
-          GameBoardDrawer::Flag(current_selected);
+          GameBoardDraw::Flag(current_selected);
         }
         else {
           suppress_expose = true;
-          GameBoardDrawer::Hide(current_selected);
+          GameBoardDraw::Hide(current_selected);
         }
       }
     } break;
@@ -1083,7 +1099,7 @@ std::uint8_t cursor_anim_frame = 0;
 #ifdef PLATFORM_C64
       c64::MusicPlayer::play(0, false, expose_sfx);
 #endif
-      GameBoardDrawer::DrawResetButtonCaution();
+      GameBoardDraw::DrawResetButtonCaution();
       break;
     case FireButtonEventFilter::NO_EVENT:
       break;
@@ -1111,8 +1127,8 @@ std::uint8_t cursor_anim_frame = 0;
                 game_columns)
             .right(direction_events.d);
 
-    cursor.position(GameBoardDrawer::selection_to_sprite_x(current_selected.X),
-                    GameBoardDrawer::selection_to_sprite_y(current_selected.Y));
+    cursor.position(GameBoardDraw::selection_to_sprite_x(current_selected.X),
+                    GameBoardDraw::selection_to_sprite_y(current_selected.Y));
     cursor.expand(false, false);
 
     cursor_animator();
@@ -1135,7 +1151,7 @@ std::uint8_t cursor_anim_frame = 0;
         target::graphics::render_on();
         break;
       case FireButtonEventFilter::PRESS:
-        GameBoardDrawer::DrawResetButtonCaution();
+        GameBoardDraw::DrawResetButtonCaution();
         break;
       case FireButtonEventFilter::LONG_PRESS:
       case FireButtonEventFilter::NO_EVENT:
@@ -1143,8 +1159,8 @@ std::uint8_t cursor_anim_frame = 0;
     }
 
     cursor.position(
-        GameBoardDrawer::tile_to_sprite_x(GameBoardDrawer::reset_button_x()),
-        GameBoardDrawer::tile_to_sprite_y(GameBoardDrawer::reset_button_y()));
+        GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
+        GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
     cursor.expand(true, true);
 
     cursor_animator();
@@ -1183,8 +1199,8 @@ std::uint8_t cursor_anim_frame = 0;
 
     switch (fire_button_events) {
     case FireButtonEventFilter::RELEASE:
-      GameBoardDrawer::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
-                                   DIFFICULTY_PRESETS[difficulty].m_columns);
+      GameBoardDraw::SetGameSize(DIFFICULTY_PRESETS[difficulty].m_rows,
+                                 DIFFICULTY_PRESETS[difficulty].m_columns);
       mines = DIFFICULTY_PRESETS[difficulty].m_mines;
       reset();
       target::graphics::render_off();
@@ -1213,12 +1229,12 @@ std::uint8_t cursor_anim_frame = 0;
         break;
     }
     
-    GameBoardDrawer::Traits::place(target::graphics::BLANK, DifficultyToSelectionArrow[BEGINNER]);
-    GameBoardDrawer::Traits::place(target::graphics::BLANK,
+    target::graphics::place(target::graphics::BLANK, DifficultyToSelectionArrow[BEGINNER]);
+    target::graphics::place(target::graphics::BLANK,
                                    DifficultyToSelectionArrow[INTERMEDIATE]);
-    GameBoardDrawer::Traits::place(target::graphics::BLANK,
+    target::graphics::place(target::graphics::BLANK,
                                    DifficultyToSelectionArrow[EXPERT]);
-    GameBoardDrawer::Traits::place(GameBoardDrawer::Traits::SelectArrow,
+    target::graphics::place(target::graphics::SelectArrow,
                                    DifficultyToSelectionArrow[difficulty]);
     return this;
   }
@@ -1251,11 +1267,11 @@ std::uint8_t cursor_anim_frame = 0;
       break;
     }
 
-    GameBoardDrawer::DrawResetButtonDead();
+    GameBoardDraw::DrawResetButtonDead();
 
     cursor.position(
-        GameBoardDrawer::tile_to_sprite_x(GameBoardDrawer::reset_button_x()),
-        GameBoardDrawer::tile_to_sprite_y(GameBoardDrawer::reset_button_y()));
+        GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
+        GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
     cursor.expand(true, true);
 
     cursor_animator();
@@ -1276,11 +1292,11 @@ std::uint8_t cursor_anim_frame = 0;
       break;
     }
 
-    GameBoardDrawer::DrawResetButtonWin();
+    GameBoardDraw::DrawResetButtonWin();
 
     cursor.position(
-        GameBoardDrawer::tile_to_sprite_x(GameBoardDrawer::reset_button_x()),
-        GameBoardDrawer::tile_to_sprite_y(GameBoardDrawer::reset_button_y()));
+        GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
+        GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
     cursor.expand(true, true);
 
     cursor_animator();
