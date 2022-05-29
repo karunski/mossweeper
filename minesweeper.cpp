@@ -167,8 +167,13 @@ std::uint8_t cursor_anim_frame = 0;
     static void Draw000(std::uint8_t x_off, std::uint16_t val) {
       const std::uint8_t y_pos = board_pos.Y + TopBorderHeight;
 
-      for (std::uint8_t i = 3; i < Traits::ScoreSize; i += 1) {
-        DrawTile<immediate>(Traits::ScoreDigits[0], x_off++, y_pos);
+      if (immediate) {
+        for (std::uint8_t i = 3; i < Traits::ScoreSize; i += 1) {
+          DrawTile<true>(Traits::ScoreDigits[0], x_off++, y_pos);
+        }
+      }
+      else {
+        x_off++;
       }
 
       DrawTile<immediate>(Traits::ScoreDigits[val / 100], x_off++, y_pos);

@@ -256,8 +256,8 @@ namespace nes {
            {Color{Color::Light, Color::Yellow},
             Color{Color::Medium, Color::Gray}, Color{}},
            // Palette 1: borders
-           {Color{Color::Pale, Color::Gray}, Color{Color::Medium, Color::Gray},
-            Color{Color::Dark, Color::Gray}},
+           {Color{Color::Pale, Color::Gray}, Color{Color::Dark, Color::Gray},
+            Color{Color::Dark, Color::Black}},
            // Palette 2: game squares
            {Color{Color::Medium, Color::Red},
             Color{Color::Medium, Color::Blue}, Color{Color::Dark, Color::Gray}},
