@@ -15,6 +15,25 @@ struct MetaTile {
   const RowType tiles[Height];
 };
 
+template<class T>
+struct Height
+{
+  static constexpr std::uint8_t value = 1;
+};
+
+template<class TileType, std::uint8_t w, std::uint8_t h>
+struct Height<MetaTile<TileType, w, h>>
+{
+  static constexpr auto value = h;
+};
+
+template <class T> struct Width { static constexpr std::uint8_t value = 1; };
+
+template <class TileType, std::uint8_t w, std::uint8_t h>
+struct Width<MetaTile<TileType, w, h>> {
+  static constexpr auto value = w;
+};
+
 struct TilePoint {
 
   TilePoint left(std::uint8_t distance) const {

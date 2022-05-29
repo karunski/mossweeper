@@ -2,7 +2,7 @@
 #include <string.h>
 #include <cstdint>
 #include <cstddef>
-#include <typeinfo>
+#include <type_traits>
 #include "find.h"
 #include "rand.h"
 #include "tile_model.h"
@@ -59,64 +59,113 @@ std::uint8_t cursor_anim_frame = 0;
   {
     using TileType = typename GameBoardTraits::tile_type;
 
-    template<TileType LeftCorner, TileType Middle, TileType RightCorner>
-    static void DrawBorderRow(std::uint8_t currentRow)
-    {
-      GameBoardTraits::place_immediate(LeftCorner, board_pos.X, currentRow);
-      GameBoardTraits::fill_immediate(Middle, board_pos.X+1, currentRow, game_columns);
-      GameBoardTraits::place_immediate(
-          RightCorner, board_pos.X + 1 + game_columns, currentRow);
+    template <class LeftCornerType, class MiddleType, class RightCornerType>
+    static void DrawBorderRow(std::uint8_t currentRow,
+                              LeftCornerType leftcorner,
+                              MiddleType middle,
+                              RightCornerType rightcorner) {
+      DrawTile<true>(leftcorner, board_pos.X, currentRow);
+      FillHorizontal(middle, board_pos.X+LeftBorderWidth, currentRow, game_columns);
+      DrawTile<true>(
+          rightcorner, board_pos.X + LeftBorderWidth + game_columns, currentRow);
     }
 
     static void DrawSideBorders(std::uint8_t currentRow)
     {
-      GameBoardTraits::place_immediate(GameBoardTraits::LeftBorder, board_pos.X, currentRow);
+      DrawTile<true>(GameBoardTraits::LeftBorder, board_pos.X, currentRow);
       GameBoardTraits::place_immediate(GameBoardTraits::RightBorder,
-                                       board_pos.X + 1 + game_columns,
+                                       board_pos.X + LeftBorderWidth + game_columns,
                                        currentRow);
     }
 
     static void DrawHidden(std::uint8_t currentRow)
     {
-      GameBoardTraits::fill_immediate(GameBoardTraits::HiddenSquare, board_pos.X + 1, currentRow, game_columns);
+      GameBoardTraits::fill_immediate(GameBoardTraits::HiddenSquare,
+                                      board_pos.X + LeftBorderWidth, currentRow,
+                                      game_columns);
     }
 
-    template<class MetaTileType>
-    static void DrawMetaTile(const MetaTileType & metaTile, std::uint8_t x, std::uint8_t y)
-    {
-      for (std::uint8_t i = 0; i < MetaTileType::height; i += 1)
+    static void FillHorizontal(TileType tile, std::uint8_t x, std::uint8_t y, std::uint8_t len) {
+      GameBoardTraits::fill_immediate(tile, x, y, len);
+    }
+
+    template<std::uint8_t height>
+    static void FillHorizontal(MetaTile<TileType, 1, height> tile, std::uint8_t x, std::uint8_t y,
+                               std::uint8_t len) {
+      for (std::uint8_t i = 0; i < height; i += 1) {
+        GameBoardTraits::fill_immediate(tile.tiles[i][0], x, y+i, len);
+      }
+    }
+
+    template<bool immediate>
+    struct PlaceTile;
+
+    template <> struct PlaceTile<true> {
+      static void at(TileType tile, std::uint8_t x,
+                     std::uint8_t y) {
+        GameBoardTraits::place_immediate(tile, x, y);
+      }
+    };
+
+    template <> struct PlaceTile<false> {
+      static void at(TileType tile, std::uint8_t x,
+                     std::uint8_t y) {
+        GameBoardTraits::place(tile, x, y);
+      }
+    };
+
+    template <bool immediate, std::uint8_t width, std::uint8_t height>
+    static void DrawTile(
+        const MetaTile<TileType, width, height> &metaTile,
+        std::uint8_t x, std::uint8_t y) {
+      for (std::uint8_t i = 0; i < height; i += 1)
       {
-        for (std::uint8_t j = 0; j < MetaTileType::width; j += 1)
+        for (std::uint8_t j = 0; j < width; j += 1)
         {
-          GameBoardTraits::place(metaTile.tiles[i][j], x + j, y + i);
+            PlaceTile<immediate>::at(metaTile.tiles[i][j], x + j, y + i);
         }
       }
     }
 
+    template <bool immediate>
+    static void DrawTile(TileType tile, std::uint8_t x,
+                         std::uint8_t y) {
+      PlaceTile<immediate>::at(tile, x, y);
+    }
+
     static void CenterBoardOnScreen() {
-      board_pos.X = (GameBoardTraits::ScreenWidth - (game_columns + 2)) / 2;
+      board_pos.X =
+          (GameBoardTraits::ScreenWidth -
+           (game_columns + LeftBorderWidth +
+            1)) /
+          2;
+      board_pos.X -= (board_pos.X & 0b1);
+        
       board_pos.Y = (GameBoardTraits::ScreenHeight -
-                     (game_rows + GameBoardTraits::ScoreRows + 2)) /
+                     (game_rows + GameBoardTraits::ScoreRows +
+                      TopBorderHeight +
+                      BottomBorderHeight)) /
                     2;
+      board_pos.Y -= (board_pos.Y & 0b1);
     }
 
     static TilePoint board_pos;
 
   public:
     static void Draw000(std::uint8_t x_off, std::uint16_t val) {
-      DrawMetaTile(GameBoardTraits::ScoreDigits[val / 100], x_off,
-                   board_pos.Y + 1);
+      DrawTile<false>(GameBoardTraits::ScoreDigits[val / 100], x_off,
+                      board_pos.Y + TopBorderHeight);
       val %= 100;
-      DrawMetaTile(GameBoardTraits::ScoreDigits[val / 10], x_off + 1,
-                   board_pos.Y + 1);
+      DrawTile<false>(GameBoardTraits::ScoreDigits[val / 10], x_off + 1,
+                      board_pos.Y + TopBorderHeight);
       val %= 10;
-      DrawMetaTile(GameBoardTraits::ScoreDigits[val], x_off + 2,
-                   board_pos.Y + 1);
+      DrawTile<false>(GameBoardTraits::ScoreDigits[val], x_off + 2,
+                      board_pos.Y + TopBorderHeight);
     }
 
     static TilePoint SelectionToTilePosition(const TilePoint & game_selection) {
-      return {static_cast<std::uint8_t>(board_pos.X + 1 + game_selection.X),
-              static_cast<std::uint8_t>(board_pos.Y + 1 + GameBoardTraits::ScoreRows + game_selection.Y)};
+      return {static_cast<std::uint8_t>(board_pos.X + LeftBorderWidth + game_selection.X),
+              static_cast<std::uint8_t>(board_pos.Y + TopBorderHeight + GameBoardTraits::ScoreRows + game_selection.Y)};
     }
 
     static void SetGameSize(std::uint8_t rows, std::uint8_t columns) {
@@ -127,15 +176,23 @@ std::uint8_t cursor_anim_frame = 0;
 
     using Traits = GameBoardTraits;
 
+    static constexpr std::uint8_t TopBorderHeight =
+        Height<std::decay_t<decltype(Traits::TopBorder)>>::value;
+    static constexpr std::uint8_t BottomBorderHeight =
+        Height<std::decay_t<decltype(Traits::BottomBorder)>>::value;
+    static constexpr std::uint8_t LeftBorderWidth = 
+        Width<std::decay_t<decltype(Traits::LeftBorder)>>::value;
+    static_assert(LeftBorderWidth == Width<std::decay_t<decltype(Traits::TopLeft)>>::value);
+
     static void DrawBoard() {
       static std::uint8_t currentRow;
 
       currentRow = board_pos.Y;
 
-      DrawBorderRow<GameBoardTraits::TopLeft, GameBoardTraits::TopBorder,
-                    GameBoardTraits::TopRight>(currentRow);
+      DrawBorderRow(currentRow, GameBoardTraits::TopLeft,
+                    GameBoardTraits::TopBorder, GameBoardTraits::TopRight);
 
-      currentRow += 1;
+      currentRow += TopBorderHeight;
 
       for (std::uint8_t i = 0; i < GameBoardTraits::ScoreRows; i += 1) {
         DrawSideBorders(currentRow);
@@ -148,36 +205,37 @@ std::uint8_t cursor_anim_frame = 0;
         currentRow += 1;
       }
 
-      DrawBorderRow<GameBoardTraits::BottomLeft, GameBoardTraits::BottomBorder,
-                    GameBoardTraits::BottomRight>(currentRow);
+      DrawBorderRow(currentRow, GameBoardTraits::BottomLeft,
+                    GameBoardTraits::BottomBorder,
+                    GameBoardTraits::BottomRight);
 
       DrawResetButtonHappy();
 
-      Draw000(board_pos.X + 1, 0);
-      Draw000(board_pos.X + 1 + game_columns - 3, 0);
+      Draw000(board_pos.X + LeftBorderWidth, 0);
+      Draw000(board_pos.X + LeftBorderWidth + game_columns - 3, 0);
     }
 
     static void DrawScore(std::uint8_t score) {
-      Draw000(board_pos.X + 1, score);
+      Draw000(board_pos.X + LeftBorderWidth, score);
     }
     static void DrawTime(std::uint16_t seconds) {
-      Draw000(board_pos.X + 1 + game_columns - 3, seconds);
+      Draw000(board_pos.X + LeftBorderWidth + game_columns - 3, seconds);
     }
 
     static void DrawResetButtonHappy() {
-      DrawMetaTile(GameBoardTraits::Happy, reset_button_x(), reset_button_y());
+      DrawTile<false>(GameBoardTraits::Happy, reset_button_x(), reset_button_y());
     }
 
     static void DrawResetButtonCaution() {
-      DrawMetaTile(GameBoardTraits::Caution, reset_button_x(), reset_button_y());
+      DrawTile<false>(GameBoardTraits::Caution, reset_button_x(), reset_button_y());
     }
 
     static void DrawResetButtonDead() {
-      DrawMetaTile(GameBoardTraits::Dead, reset_button_x(), reset_button_y());
+      DrawTile<false>(GameBoardTraits::Dead, reset_button_x(), reset_button_y());
     }
 
     static void DrawResetButtonWin() {
-      DrawMetaTile(GameBoardTraits::Win, reset_button_x(), reset_button_y());
+      DrawTile<false>(GameBoardTraits::Win, reset_button_x(), reset_button_y());
     }
 
     static void ExposeTile(const TilePoint & tile)
@@ -213,12 +271,12 @@ std::uint8_t cursor_anim_frame = 0;
       return count;
     }
 
-    static constexpr std::uint8_t LeftBoardLimit() { return 1; }
+    static constexpr std::uint8_t LeftBoardLimit() { return LeftBorderWidth; }
     static constexpr std::uint8_t RightBoardLimit(std::uint8_t columns) {
-      return columns;
+      return columns + LeftBoardLimit() - 1;
     }
     static constexpr std::uint8_t TopBoardLimit() {
-      return GameBoardTraits::ScoreRows + 1;
+      return GameBoardTraits::ScoreRows + TopBorderHeight;
     }
     static constexpr std::uint8_t BottomBoardLimit(std::uint8_t rows) {
       return TopBoardLimit() + rows - 1;
@@ -241,10 +299,12 @@ std::uint8_t cursor_anim_frame = 0;
     }
 
     static std::uint8_t reset_button_x() {
-      return board_pos.X + 1 + (game_columns / 2) - (GameBoardTraits::Happy.width / 2);
+      return board_pos.X + LeftBorderWidth + (game_columns / 2) - (GameBoardTraits::Happy.width / 2);
     }
 
-    static std::uint8_t reset_button_y() { return board_pos.Y + 1; }
+    static std::uint8_t reset_button_y() {
+      return board_pos.Y + TopBorderHeight;
+    }
 
     template <std::uint8_t len>
     static void

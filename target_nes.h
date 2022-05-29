@@ -80,7 +80,8 @@ namespace nes {
           0x72, 0x81,
           // NumberMarker 76-84
           0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 
-          0x00, 0x00, 0x00};
+          0x1, // Blank w/ border attr 85
+          0x00, 0x00};
 
       static constexpr chr_code_type tile_to_chr_code(const tile_type t) {
         return chr_code_atlas[static_cast<std::uint8_t>(t)];
@@ -156,7 +157,10 @@ namespace nes {
            3, 3},
           {2, 2, 2, 2}, // Number marker 0-3 76-79,
           {2, 2, 2, 2}, // Number marker 4-7 80-83,
-          {2, }// number marker 8 83
+          {
+              2, // number marker 8 84
+              1, // BLANK w/ border attribute 85
+          }
 
       };
 
@@ -178,16 +182,21 @@ namespace nes {
       static_assert(sizeof(palette_atlas) == sizeof(chr_code_atlas) / 4);
 
       static constexpr tile_type BLANK{0};
+      static constexpr tile_type BLANK_BORDER{85};
       static constexpr tile_type LetterA{0x04};
       static constexpr tile_type SelectArrow{0x01};
       static constexpr tile_type HiddenSquare{2};
       static constexpr tile_type Mine{3};
-      static constexpr tile_type TopLeft{30};
-      static constexpr tile_type TopBorder{31};
-      static constexpr tile_type TopRight{32};
-      static constexpr tile_type BottomLeft{33};
+      static constexpr MetaTile<tile_type, 2, 2> TopLeft{
+          {{BLANK_BORDER, BLANK_BORDER}, {BLANK_BORDER, tile_type{30}}}};
+      static constexpr MetaTile<tile_type, 1, 2> TopBorder{
+          {{BLANK_BORDER}, {tile_type{31}}}};
+      static constexpr MetaTile<tile_type, 1, 2> TopRight{
+          {{BLANK_BORDER}, {tile_type{32}}}};
+      static constexpr MetaTile<tile_type, 2, 1> BottomLeft{{{BLANK_BORDER, tile_type{33}}}};
       static constexpr tile_type BottomBorder{34};
-      static constexpr tile_type LeftBorder{35};
+      static constexpr MetaTile<tile_type, 2, 1> LeftBorder{
+          {{BLANK_BORDER, tile_type{35}}}};
       static constexpr tile_type RightBorder{36};
       static constexpr tile_type BottomRight{37};
       static constexpr tile_type Wrong{38};
@@ -312,8 +321,6 @@ namespace nes {
         }
       };
 
-      
-
       constexpr static bool is_attr_tile(std::uint8_t x, std::uint8_t y) {
         return (x & 0b1) == 0 && (y & 0b1) == 0;
       }
@@ -336,7 +343,7 @@ namespace nes {
           tile_updates_size += 1;
         }
 
-        if (is_attr_tile(location.X, location.Y)) {
+        /*if (is_attr_tile(location.X, location.Y)) {
           auto &current_attr_update = attr_updates[attr_updates_size];
           const auto attr_location = tile_point_to_attr_point(location);
 
@@ -354,7 +361,7 @@ namespace nes {
           current_attr_update.mask = std::byte{0b11} << shift;
           current_attr_update.offset = attr_location.attr_table_offset();
           attr_updates_size += 1;
-        }
+        }*/
       }
 
       static void update_attr(std::uint8_t attr_offset, std::byte mask, std::byte attr_data) {
@@ -489,18 +496,18 @@ namespace nes {
         tile_updates_size = 0;
 
         // attribute updates
-        for (std::uint8_t i = 0; i < attr_updates_size; i += 1) {
+        /*for (std::uint8_t i = 0; i < attr_updates_size; i += 1) {
           const auto & current_update = attr_updates[i];
           update_attr(current_update.offset, current_update.mask, current_update.attr_data);
         }
 
-        attr_updates_size = 0;
+        attr_updates_size = 0;*/
+
+        // must always reset before the frame starts... the on-screen rendering
+        // uses the address register to determine where to read the tiles from!
+        ppu.set_ppu_address(PPU::NAME_TABLE_0);
 
         oam_dma.load_oam(oam);
-
-        // must always reset before the frame starts... the on-screen rendering uses the address
-        // register to determine where to read the tiles from!
-        ppu.set_ppu_address(PPU::NAME_TABLE_0);
       }
 
     private:
