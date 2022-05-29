@@ -65,17 +65,17 @@ namespace nes {
           // Digit 2 60-61
           0x6a, 0x79,
           // Digit 3 62-63
-          0x6b, 0x7a,
+          0x6a, 0x81,
           // Digit 4 64-65
           0x6c, 0x7b,
           // Digit 5 66-67
-          0x6d, 0x7c,
+          0x6d, 0x81,
           // Digit 6 68-69
-          0x6e, 0x7d,
+          0x6d, 0x7d,
           // Digit 7 70-71
-          0x6f, 0x7e,
+          0x6f, 0x78,
           // Digit 8 72-73
-          0x70, 0x7f,
+          0x72, 0x7d,
           // Digit 9 74-75
           0x72, 0x81,
           // NumberMarker 76-84
