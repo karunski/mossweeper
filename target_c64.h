@@ -153,8 +153,8 @@ struct target {
     struct Pallettes {
       color_type background_color;
     };
-    static constexpr Pallettes GameBoardPallettes{WHITE};
-    static constexpr Pallettes DifficultyScreenPallettes{WHITE};
+    static constexpr Pallettes GameBoardPalettes{WHITE};
+    static constexpr Pallettes DifficultyScreenPalettes{WHITE};
 
     static void load_pallettes(const Pallettes & pallettes) {
       c64::vic_ii.set_multi_color_mode(false);

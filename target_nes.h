@@ -238,24 +238,43 @@ namespace nes {
 
       static_assert(sizeof(Palette) == 3);
       struct Palettes {
-        Color background_color; // shared by all pallettes.
+        Color background_color; // shared by all palettes.
         Palette background[4];
         Palette sprite[4];
       };
 
       static_assert(sizeof(Palettes) == 25);
 
-      static constexpr Palettes DifficultyScreenPallettes = {
+      static constexpr Palettes DifficultyScreenPalettes = {
           WHITE,
           {Color{Color::Pale, Color::Gray},
            Color{Color::Dark, Color::Black},
            Color{Color::Dark, Color::Black}}};
 
-      static constexpr Palettes GameBoardPallettes = {
+      static constexpr Palettes GameBoardPalettes = {
           {Color::Pale, Color::Black},
           {// Palette 0: smiley face
            {Color{Color::Light, Color::Yellow},
-            Color{Color::Pale, Color::Gray}, Color{Color::Dark, Color::Black}},
+            Color{Color::Pale, Color::Black}, Color{Color::Dark, Color::Black}},
+           // Palette 1: borders
+           {Color{Color::Pale, Color::Gray}, Color{Color::Dark, Color::Gray},
+            Color{Color::Dark, Color::Black}},
+           // Palette 2: game squares
+           {Color{Color::Medium, Color::Green},
+            Color{Color::Medium, Color::Blue}, Color{Color::Dark, Color::Gray}},
+           // Palette 3: Digits
+           {Color{Color::Light, Color::Red}, Color{Color::Dark, Color::Red},
+            Color{Color::Dark, Color::Black}}},
+
+          {Color{Color::Dark, Color::Violet},
+           Color{Color::Medium, Color::Violet},
+           Color{Color::Light, Color::Violet}}};
+
+      static constexpr Palettes ResetButtonPalettes = {
+          {Color::Pale, Color::Black},
+          {// Palette 0: smiley face
+           {Color{Color::Light, Color::Yellow}, Color{Color::Medium, Color::Violet},
+            Color{Color::Dark, Color::Black}},
            // Palette 1: borders
            {Color{Color::Pale, Color::Gray}, Color{Color::Dark, Color::Gray},
             Color{Color::Dark, Color::Black}},
@@ -281,6 +300,10 @@ namespace nes {
           PPU::copy(PPU::PALETTE_SPRITE[i], &pallettes.sprite[i].colors[0],
                     sizeof(Palette));
         }
+      }
+
+      static void load_palettes_defer(const Palettes & palettes) {
+        next_palettes = &palettes;
       }
 
       static void render_off() {
@@ -344,26 +367,6 @@ namespace nes {
           current_update.nametable_offset = location.Y * 32 + location.X;
           tile_updates_size += 1;
         }
-
-        /*if (is_attr_tile(location.X, location.Y)) {
-          auto &current_attr_update = attr_updates[attr_updates_size];
-          const auto attr_location = tile_point_to_attr_point(location);
-
-          static_assert(attr_point{0, 0}.attr_byte_shift() == 0);
-          static_assert(attr_point{1, 0}.attr_byte_shift() == 2);
-          static_assert(attr_point{0, 1}.attr_byte_shift() == 4);
-          static_assert(attr_point{1, 1}.attr_byte_shift() == 6);
-          static_assert(attr_point{2, 0}.attr_byte_shift() == 0);
-          static_assert(attr_point{3, 0}.attr_byte_shift() == 2);
-          static_assert(attr_point{2, 1}.attr_byte_shift() == 4);
-          static_assert(attr_point{3, 1}.attr_byte_shift() == 6);
-          
-          const auto shift = attr_location.attr_byte_shift();
-          current_attr_update.attr_data = std::byte{tile_to_palette_idx(tile)} << shift;
-          current_attr_update.mask = std::byte{0b11} << shift;
-          current_attr_update.offset = attr_location.attr_table_offset();
-          attr_updates_size += 1;
-        }*/
       }
 
       static void update_attr(std::uint8_t attr_offset, std::byte mask, std::byte attr_data) {
@@ -498,13 +501,10 @@ namespace nes {
 
         tile_updates_size = 0;
 
-        // attribute updates
-        /*for (std::uint8_t i = 0; i < attr_updates_size; i += 1) {
-          const auto & current_update = attr_updates[i];
-          update_attr(current_update.offset, current_update.mask, current_update.attr_data);
+        if (next_palettes) {
+          load_pallettes(*next_palettes);
+          next_palettes = nullptr;
         }
-
-        attr_updates_size = 0;*/
 
         // must always reset before the frame starts... the on-screen rendering
         // uses the address register to determine where to read the tiles from!
@@ -534,15 +534,7 @@ namespace nes {
       static TileUpdate tile_updates[TILE_UPDATES_MAX];
       static std::uint8_t tile_updates_size;
 
-      struct AttrUpdate {
-        std::byte attr_data;
-        std::byte mask;
-        std::uint8_t offset;
-      };
-
-      // static constexpr std::uint8_t ATTR_UPDATES_MAX = 10;
-      // static AttrUpdate attr_updates[ATTR_UPDATES_MAX];
-      // static std::uint8_t attr_updates_size;
+      static const Palettes * next_palettes;
 
       constexpr static PPU::pointer ppu_coord_addr(std::uint8_t x, std::uint8_t y) {
         return PPU::NAME_TABLE_0 + (y * 32 + x);
@@ -615,9 +607,7 @@ namespace nes {
   inline target::graphics::TileUpdate
       target::graphics::tile_updates[target::graphics::TILE_UPDATES_MAX];
 
-  // inline std::uint8_t target::graphics::attr_updates_size = 0;
-  // inline target::graphics::AttrUpdate
-  //     target::graphics::attr_updates[target::graphics::ATTR_UPDATES_MAX];
+  inline const target::graphics::Palettes * target::graphics::next_palettes = nullptr;
 }
 
 using target = nes::target;

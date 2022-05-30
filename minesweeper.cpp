@@ -975,7 +975,7 @@ std::uint8_t cursor_anim_frame = 0;
           GameBoardDraw::GenerateTileString("EXPERT");
       target::graphics::render_off();
       target::clear_screen();
-      target::graphics::load_pallettes(target::graphics::DifficultyScreenPallettes);
+      target::graphics::load_pallettes(target::graphics::DifficultyScreenPalettes);
       GameBoardDraw::DrawString(SELECT_DIFFICULTY, 1, 3);
       GameBoardDraw::DrawString(BEGINNER, 5, 5);
       GameBoardDraw::DrawString(INTERMEDIATE, 5, 7);
@@ -1069,6 +1069,7 @@ std::uint8_t cursor_anim_frame = 0;
     }
     else {
       cursor.enable(false);
+      target::graphics::load_palettes_defer(target::graphics::ResetButtonPalettes);
     }
   }
 
@@ -1182,11 +1183,13 @@ std::uint8_t cursor_anim_frame = 0;
 
     if (direction_events.s) {
       AppModeGame::current_selected.Y = 0;
+      game_field.on_init(this);
       return &game_field;
     }
 
     if (direction_events.w) {
       AppModeGame::current_selected.Y = game_rows - 1;
+      game_field.on_init(this);
       return &game_field;
     }
     
@@ -1257,14 +1260,17 @@ std::uint8_t cursor_anim_frame = 0;
   AppModeSelectDifficulty difficulty_selection;
 
   void AppModeGame::on_init(AppMode *last_mode) {
-    target::graphics::load_pallettes(target::graphics::GameBoardPallettes);
 
     if (last_mode == &difficulty_selection) {
       target::graphics::render_off();
+      target::graphics::load_pallettes(target::graphics::GameBoardPalettes);
       target::clear_screen();
       reset();
       target::graphics::render_on();
       current_selected = TilePoint{};
+    }
+    else if(last_mode == &reset_selection) {
+      target::graphics::load_palettes_defer(target::graphics::GameBoardPalettes);
     }
   }
 
@@ -1284,10 +1290,7 @@ std::uint8_t cursor_anim_frame = 0;
 
     GameBoardDraw::DrawResetButtonDead();
 
-    cursor.position(
-        GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
-        GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
-    cursor.expand(true, true);
+    HighlightResetButton();
 
     cursor_animator();
 
@@ -1309,10 +1312,7 @@ std::uint8_t cursor_anim_frame = 0;
 
     GameBoardDraw::DrawResetButtonWin();
 
-    cursor.position(
-        GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
-        GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
-    cursor.expand(true, true);
+    HighlightResetButton();
 
     cursor_animator();
 
