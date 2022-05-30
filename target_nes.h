@@ -251,15 +251,15 @@ namespace nes {
            Color{Color::Dark, Color::Black}}};
 
       static constexpr Palettes GameBoardPallettes = {
-          {Color::Medium, Color::Gray},
+          {Color::Pale, Color::Black},
           {// Palette 0: smiley face
            {Color{Color::Light, Color::Yellow},
-            Color{Color::Medium, Color::Gray}, Color{}},
+            Color{Color::Pale, Color::Gray}, Color{Color::Dark, Color::Black}},
            // Palette 1: borders
            {Color{Color::Pale, Color::Gray}, Color{Color::Dark, Color::Gray},
             Color{Color::Dark, Color::Black}},
            // Palette 2: game squares
-           {Color{Color::Medium, Color::Red},
+           {Color{Color::Medium, Color::Green},
             Color{Color::Medium, Color::Blue}, Color{Color::Dark, Color::Gray}},
            // Palette 3: Digits
            {Color{Color::Light, Color::Red}, Color{Color::Dark, Color::Red},
@@ -442,7 +442,7 @@ namespace nes {
       public:
         // offsets of the 'sprite' origin from the 'background origin'
         static constexpr std::uint8_t sprite_x_offset = 0;
-        static constexpr std::int8_t sprite_y_offset = -2;
+        static constexpr std::int8_t sprite_y_offset = -3;
 
         void enable(bool) {
           // sprites are always enabled.  Hide them by moving them off-screen
