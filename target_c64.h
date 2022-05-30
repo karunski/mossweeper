@@ -67,6 +67,8 @@ struct target {
     static constexpr auto SelectArrow = TileType{32};
 
     static constexpr auto ScoreRows = std::uint8_t{2};
+    static constexpr auto ScoreSize = std::uint8_t{3};
+    static constexpr auto CanExpandSprites = false;
 
     static constexpr auto NumberMarker(std::uint8_t idx) {
       return static_cast<TileType>(static_cast<std::uint8_t>(ExposedSquare) +

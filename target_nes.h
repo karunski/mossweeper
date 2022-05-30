@@ -206,6 +206,7 @@ namespace nes {
       static constexpr std::uint8_t ScreenHeight = 30;
       static constexpr std::uint8_t ScoreRows = 2;
       static constexpr std::uint8_t ScoreSize = 4;
+      static constexpr bool CanExpandSprites = false;
 
       using Emoji = MetaTile<tile_type, 2, 2>;
 
@@ -446,6 +447,7 @@ namespace nes {
 
         void enable(bool) {
           // sprites are always enabled.  Hide them by moving them off-screen
+          oam.set_sprite_position(active_number, 0xFF, 0xFF);
         }
 
         void multicolor_enable(bool) {

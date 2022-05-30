@@ -873,8 +873,8 @@ std::uint8_t cursor_anim_frame = 0;
 
 #ifdef PLATFORM_C64
     sprite_background.position(
-        GameBoardDrawer::tile_to_sprite_x(GameBoardDrawer::reset_button_x()),
-        GameBoardDrawer::tile_to_sprite_y(GameBoardDrawer::reset_button_y()));
+        GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
+        GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
 #endif
 
     static constexpr std::uint8_t cursor_frameskip = 1;
@@ -1059,6 +1059,19 @@ std::uint8_t cursor_anim_frame = 0;
     return true;  
   }
 
+  template<bool CanExpandSprite = target::graphics::CanExpandSprites>
+  void HighlightResetButton() {
+    if (CanExpandSprite) {
+      cursor.position(
+          GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
+          GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
+      cursor.expand(true, true);
+    }
+    else {
+      cursor.enable(false);
+    }
+  }
+
   AppMode *
   AppModeGame::on_vsync(FireButtonEventFilter::Event fire_button_events,
                         key_scan_res direction_events) {
@@ -1163,10 +1176,7 @@ std::uint8_t cursor_anim_frame = 0;
         break;
     }
 
-    cursor.position(
-        GameBoardDraw::tile_to_sprite_x(GameBoardDraw::reset_button_x()),
-        GameBoardDraw::tile_to_sprite_y(GameBoardDraw::reset_button_y()));
-    cursor.expand(true, true);
+    HighlightResetButton();
 
     cursor_animator();
 
