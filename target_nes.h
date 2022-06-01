@@ -202,7 +202,8 @@ namespace nes {
       static constexpr tile_type Wrong{38};
       static constexpr tile_type Flag{39};
 
-      static constexpr std::uint8_t ScreenWidth = 32;
+      static constexpr std::uint8_t ScreenWidth = 34;
+      static constexpr std::uint8_t WindowWidth = 32;
       static constexpr std::uint8_t ScreenHeight = 30;
       static constexpr std::uint8_t ScoreRows = 2;
       static constexpr std::uint8_t ScoreSize = 4;
@@ -337,6 +338,9 @@ namespace nes {
         std::uint8_t y;
 
         constexpr std::uint8_t attr_table_offset() const {
+          if (x > 15) {
+            return 64 + ((y >> 1) * 8) + ((x - 16) >> 1);
+          }
           return (y >> 1) * 8 + (x >> 1);
         }
 
@@ -371,7 +375,8 @@ namespace nes {
 
       static void update_attr(std::uint8_t attr_offset, std::byte mask, std::byte attr_data) {
         const auto attr_byte_ptr =
-            PPU::ATTRIBUTE_TABLE_0 + attr_offset;
+            attr_offset > 64 ? PPU::ATTRIBUTE_TABLE_1 + (attr_offset - 64)
+                             : PPU::ATTRIBUTE_TABLE_0 + attr_offset;
         std::byte current_val = (*attr_byte_ptr).fetch_byte<std::byte>();
         *attr_byte_ptr =
             (current_val & ~(mask)) | attr_data;
@@ -445,7 +450,7 @@ namespace nes {
       struct sprite {
       public:
         // offsets of the 'sprite' origin from the 'background origin'
-        static constexpr std::uint8_t sprite_x_offset = 0;
+        static std::int8_t sprite_x_offset;
         static constexpr std::int8_t sprite_y_offset = -3;
 
         void enable(bool) {
@@ -483,6 +488,11 @@ namespace nes {
         OAM::slot_t active_number = 0;
       };
 
+      static void scroll_tile_x(std::uint8_t offset_tile_x) {
+        window_base = PPU::NAME_TABLE_0 + offset_tile_x;
+        sprite::sprite_x_offset = -(8*offset_tile_x);
+      }
+
       static void finish_rendering() {
 
         // Multi-byte updates.
@@ -508,7 +518,7 @@ namespace nes {
 
         // must always reset before the frame starts... the on-screen rendering
         // uses the address register to determine where to read the tiles from!
-        ppu.set_ppu_address(PPU::NAME_TABLE_0);
+        ppu.set_ppu_address(window_base);
 
         oam_dma.load_oam(oam);
       }
@@ -535,17 +545,30 @@ namespace nes {
       static std::uint8_t tile_updates_size;
 
       static const Palettes * next_palettes;
+      static PPU::pointer window_base;
 
       constexpr static PPU::pointer ppu_coord_addr(std::uint8_t x, std::uint8_t y) {
+        if (x > 31) {
+          x -= 32;
+          return PPU::NAME_TABLE_1 + (y * 32 + x);
+        }
+
         return PPU::NAME_TABLE_0 + (y * 32 + x);
       }
+
     };
 
     static bool startup_check() { return true; }
-    
+
     static void clear_screen() {
-      PPU::fill(PPU::NAME_TABLE_0, graphics::tile_to_chr_code(graphics::BLANK), 960);
-      PPU::fill(PPU::ATTRIBUTE_TABLE_0, graphics::tile_to_palette_idx(graphics::BLANK), 64);
+      PPU::fill(PPU::NAME_TABLE_0, graphics::tile_to_chr_code(graphics::BLANK),
+                960);
+      PPU::fill(PPU::ATTRIBUTE_TABLE_0,
+                graphics::tile_to_palette_idx(graphics::BLANK), 64);
+      PPU::fill(PPU::NAME_TABLE_1, graphics::tile_to_chr_code(graphics::BLANK),
+                960);
+      PPU::fill(PPU::ATTRIBUTE_TABLE_1,
+                graphics::tile_to_palette_idx(graphics::BLANK), 64);
       ppu.set_scroll(0, 0);
     }
 
@@ -608,6 +631,10 @@ namespace nes {
       target::graphics::tile_updates[target::graphics::TILE_UPDATES_MAX];
 
   inline const target::graphics::Palettes * target::graphics::next_palettes = nullptr;
+  inline PPU::pointer target::graphics::window_base{PPU::NAME_TABLE_0};
+
+  inline std::int8_t target::graphics::sprite::sprite_x_offset = 0;
+
 }
 
 using target = nes::target;

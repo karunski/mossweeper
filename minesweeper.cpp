@@ -144,6 +144,10 @@ std::uint8_t cursor_anim_frame = 0;
           (Traits::ScreenWidth - (game_columns + LeftBorderWidth + 1)) / 2;
       board_pos.X -= (board_pos.X & 0b1);
 
+      if (Traits::ScreenWidth > Traits::WindowWidth) {
+        Traits::scroll_tile_x((Traits::ScreenWidth - Traits::WindowWidth) / 2);
+      }
+
       pad_bottom = (game_rows & 0b1);
       game_height = pad_bottom + game_rows;
       board_pos.Y =
@@ -976,6 +980,7 @@ std::uint8_t cursor_anim_frame = 0;
       target::graphics::render_off();
       target::clear_screen();
       target::graphics::load_pallettes(target::graphics::DifficultyScreenPalettes);
+      target::graphics::scroll_tile_x(0);
       GameBoardDraw::DrawString(SELECT_DIFFICULTY, 1, 3);
       GameBoardDraw::DrawString(BEGINNER, 5, 5);
       GameBoardDraw::DrawString(INTERMEDIATE, 5, 7);

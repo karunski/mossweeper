@@ -100,6 +100,7 @@ struct target {
     static constexpr auto WHITE = color_type::WHITE;
 
     static constexpr std::uint8_t ScreenWidth = 40;
+    static constexpr std::uint8_t WindowWidth = ScreenWidth;
     static constexpr std::uint8_t ScreenHeight = 25;
 
     template<size_t BgColorIndex>
@@ -107,6 +108,8 @@ struct target {
       c64::vic_ii.background_color[BgColorIndex] = color;
     }
 
+    static void scroll_tile_x(std::uint8_t) {} // no scrolling needed
+    
     static void render_off() { }// TODO / not needed 
 
     static void render_on() {

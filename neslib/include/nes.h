@@ -130,7 +130,7 @@ namespace nes {
     };
 
     struct pointer {
-      reference operator*() const { return reference {ptr}; }
+      constexpr reference operator*() const { return reference {ptr}; }
 
       std::uint16_t ptr;
     };
@@ -159,7 +159,9 @@ namespace nes {
     static constexpr pointer PALETTE_BACKGROUND[4] = {0x3F01, 0x3F05, 0x3F09, 0x3F0D};
     static constexpr pointer PALETTE_SPRITE[4] = {0x3F11, 0x3F15, 0x3f19, 0x3f1D};
     static constexpr pointer NAME_TABLE_0{0x2000};
+    static constexpr pointer NAME_TABLE_1{0x2400};
     static constexpr pointer ATTRIBUTE_TABLE_0{0x23C0};
+    static constexpr pointer ATTRIBUTE_TABLE_1{0x27C0};
   };
 
   PPU::render_bits operator|(PPU::render_bits left, PPU::render_bits right) {
