@@ -291,7 +291,7 @@ namespace nes {
            Color{Color::Pale, Color::Violet}}};
 
       static void
-      load_pallettes(const Palettes &pallettes) {
+      load_palettes(const Palettes &pallettes) {
         set_background_color<0>(pallettes.background_color);
         for (uint8_t i = 0; i < 4; i += 1) {
           PPU::copy(PPU::PALETTE_BACKGROUND[i], &pallettes.background[i].colors[0],
@@ -512,7 +512,7 @@ namespace nes {
         tile_updates_size = 0;
 
         if (next_palettes) {
-          load_pallettes(*next_palettes);
+          load_palettes(*next_palettes);
           next_palettes = nullptr;
         }
 

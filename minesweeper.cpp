@@ -979,7 +979,7 @@ std::uint8_t cursor_anim_frame = 0;
           GameBoardDraw::GenerateTileString("EXPERT");
       target::graphics::render_off();
       target::clear_screen();
-      target::graphics::load_pallettes(target::graphics::DifficultyScreenPalettes);
+      target::graphics::load_palettes(target::graphics::DifficultyScreenPalettes);
       target::graphics::scroll_tile_x(0);
       GameBoardDraw::DrawString(SELECT_DIFFICULTY, 1, 3);
       GameBoardDraw::DrawString(BEGINNER, 5, 5);
@@ -1268,7 +1268,7 @@ std::uint8_t cursor_anim_frame = 0;
 
     if (last_mode == &difficulty_selection) {
       target::graphics::render_off();
-      target::graphics::load_pallettes(target::graphics::GameBoardPalettes);
+      target::graphics::load_palettes(target::graphics::GameBoardPalettes);
       target::clear_screen();
       reset();
       target::graphics::render_on();

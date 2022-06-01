@@ -153,15 +153,20 @@ struct target {
       place(Tile, tilePos.X, tilePos.Y);
     }
 
-    struct Pallettes {
+    struct Palettes {
       color_type background_color;
     };
-    static constexpr Pallettes GameBoardPalettes{WHITE};
-    static constexpr Pallettes DifficultyScreenPalettes{WHITE};
+    static constexpr Palettes GameBoardPalettes{WHITE};
+    static constexpr const auto & ResetButtonPalettes = GameBoardPalettes;
+    static constexpr Palettes DifficultyScreenPalettes{WHITE};
 
-    static void load_pallettes(const Pallettes & pallettes) {
+    static void load_palettes(const Palettes & pallettes) {
       c64::vic_ii.set_multi_color_mode(false);
       set_background_color<0>(pallettes.background_color);
+    }
+
+    static void load_palettes_defer(const Palettes & palettes) {
+      load_palettes(palettes);
     }
 
     struct sprite_pattern {
