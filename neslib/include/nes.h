@@ -287,6 +287,10 @@ namespace nes {
       *(reinterpret_cast<volatile ControllerPort *>(0x4016));
   inline auto &controller_2 =
       *(reinterpret_cast<volatile ControllerPort *>(0x4017));
+
+  class APU {
+
+  };
 }
 
 #endif

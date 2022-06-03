@@ -315,6 +315,30 @@ struct target {
                         scanRow2.KEY_D() || (right && !shift)};
   }
 
+  using music = MusicPlayer;
+
+  struct sounds {
+  static constexpr Note expose_sfx[] = {
+      {SIDVoice::triangle | SIDVoice::gate, Note::A_SHARP_4, 10},
+      {SIDVoice::triangle | SIDVoice::gate, Note::C_4, 5},
+      {SIDVoice::triangle, 0, 1}};
+  static constexpr Note shoot_sfx[] = {
+      {SIDVoice::noise | SIDVoice::gate, 0x28c8, 3},
+      {SIDVoice::noise, 0, 1}};
+  static constexpr Note flag_sfx[] = {
+      {SIDVoice::triangle | SIDVoice::gate, Note::C_3, 13},
+      {SIDVoice::ControlFlags{}, 0, 1}};
+  };
+
+  static void audio_setup() {
+    c64::sid.clear();
+    c64::sid.set_volume(c64::Nibble{15}, c64::SID::VolumeBits{});
+    c64::sid.voices[0].set_attack_decay(c64::Nibble{0}, c64::Nibble{9});
+    c64::sid.voices[0].set_sustain_release(c64::Nibble{15}, c64::Nibble{1});
+    c64::sid.voices[1].set_attack_decay(c64::Nibble{0}, c64::Nibble{6});
+    c64::sid.voices[1].set_sustain_release(c64::Nibble{0}, c64::Nibble{0});
+  }
+
 private:
   
   static uint8_t get_non_zero_sid_random() {

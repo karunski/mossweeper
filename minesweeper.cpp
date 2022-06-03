@@ -1021,22 +1021,6 @@ std::uint8_t cursor_anim_frame = 0;
 
   constexpr AppMode * next_mode_win[2] = { &game_field, &mode_win};
 
-#ifdef PLATFORM_C64
-
-  static constexpr c64::Note shoot_sfx[] = {
-      {c64::SIDVoice::noise | c64::SIDVoice::gate, 0x28c8, 3},
-      {c64::SIDVoice::noise, 0, 1}};
-
-  static constexpr c64::Note expose_sfx[] = {
-      {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::A_SHARP_4, 10},
-      {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_4, 5},
-      {c64::SIDVoice::triangle, 0, 1}};
-
-  static constexpr c64::Note flag_sfx[] = {
-      {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_3, 13},
-      {c64::SIDVoice::ControlFlags{}, 0, 1}};
-#endif
-
   bool AppModeGame::continue_expose_events() {
     // "expose" means we are figuring out which tiles need to be automatically
     // opened up because there are no mines around them. Figuring out which
@@ -1108,9 +1092,7 @@ std::uint8_t cursor_anim_frame = 0;
     case FireButtonEventFilter::LONG_PRESS: {
       if (!game_state.is_exposed(current_selected)) {
         if (game_state.set_flag(current_selected)) {
-#ifdef PLATFORM_C64
-          c64::MusicPlayer::play(0, false, flag_sfx);
-#endif
+          target::music::play(0, false, target::sounds::flag_sfx);
           GameBoardDraw::Flag(current_selected);
         }
         else {
@@ -1120,9 +1102,7 @@ std::uint8_t cursor_anim_frame = 0;
       }
     } break;
     case FireButtonEventFilter::PRESS:
-#ifdef PLATFORM_C64
-      c64::MusicPlayer::play(0, false, expose_sfx);
-#endif
+      target::music::play(0, false, target::sounds::expose_sfx);
       GameBoardDraw::DrawResetButtonCaution();
       break;
     case FireButtonEventFilter::NO_EVENT:
@@ -1130,9 +1110,7 @@ std::uint8_t cursor_anim_frame = 0;
     }
 
     if (direction_events.w || direction_events.a || direction_events.s || direction_events.d) {
-#ifdef PLATFORM_C64
-      c64::MusicPlayer::play(1, false, shoot_sfx);
-#endif
+      target::music::play(1, false, target::sounds::shoot_sfx);
     }
 
     if ((direction_events.w && current_selected.Y == 0) ||
@@ -1324,34 +1302,7 @@ std::uint8_t cursor_anim_frame = 0;
     return this;
   }
 
-#ifdef PLATFORM_C64
-  constexpr c64::Note scale[] = {
-      {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_4, 25},
-      {c64::SIDVoice::triangle, c64::Note::C_4, 5},
-      c64::Note{c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::D_4,
-                25},
-      c64::Note{c64::SIDVoice::triangle, c64::Note::D_4, 5},
-      c64::Note{c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::E_4,
-                25},
-      c64::Note{c64::SIDVoice::triangle, c64::Note::E_4, 5},
-      c64::Note{c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::F_4,
-                25},
-      c64::Note{c64::SIDVoice::triangle, c64::Note::F_4, 5},
-      c64::Note{c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::G_4,
-                25},
-      c64::Note{c64::SIDVoice::triangle, c64::Note::G_4, 5},
-      c64::Note{c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::A_4,
-                25},
-      c64::Note{c64::SIDVoice::triangle, c64::Note::A_4, 5},
-      c64::Note{c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::B_4,
-                25},
-      c64::Note{c64::SIDVoice::triangle, c64::Note::B_4, 5},
-      c64::Note{c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_5,
-                25},
-      c64::Note{c64::SIDVoice::triangle, c64::Note::C_5, 5},
-  };
-#endif
-  } // namespace
+} // namespace
 
 int main()
 {
@@ -1383,14 +1334,7 @@ int main()
 
   srand(target::seed_rng());
 
-#ifdef PLATFORM_C64
-  c64::sid.clear();
-  c64::sid.set_volume(c64::Nibble{15}, c64::SID::VolumeBits{});
-  c64::sid.voices[0].set_attack_decay(c64::Nibble{0}, c64::Nibble{9});
-  c64::sid.voices[0].set_sustain_release(c64::Nibble{15}, c64::Nibble{1});
-  c64::sid.voices[1].set_attack_decay(c64::Nibble{0}, c64::Nibble{6});
-  c64::sid.voices[1].set_sustain_release(c64::Nibble{0}, c64::Nibble{0});
-#endif
+  target::audio_setup();
 
   while (true) {
     
@@ -1406,9 +1350,8 @@ int main()
                                           direction_event_filter(keys));
 
     game_state.time_running && clock_updater();
-#ifdef PLATFORM_C64
-    c64::MusicPlayer::update();
-#endif
+
+    target::music::update();
   }
 
   return 0;

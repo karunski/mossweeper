@@ -600,6 +600,46 @@ namespace nes {
       result.d = nes::controller_1.read_d0_bit();
       return result;
     }
+
+    struct note {
+
+    };
+
+    struct sounds {
+      static constexpr note expose_sfx[] = { {} };
+        /*
+          {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::A_SHARP_4,
+           10},
+          {c64::SIDVoice::triangle | c64::SIDVoice::gate, c64::Note::C_4, 5},
+          {c64::SIDVoice::triangle, 0, 1}*/
+
+      static constexpr note shoot_sfx[] = { {}};
+          /*{SIDVoice::noise | SIDVoice::gate, 0x28c8, 3},
+          {SIDVoice::noise, 0, 1}*/
+      static constexpr note flag_sfx[] = { {}};/*
+          {SIDVoice::triangle | SIDVoice::gate, Note::C_3, 13},
+          {SIDVoice::ControlFlags{}, 0, 1}*/
+    };
+
+    class music {
+    public:
+      static void update() {
+
+      }
+
+      template <size_t N>
+      static void play(std::uint8_t channel, bool loop,
+                       const note (&notes)[N]) {
+        play(channel, loop, notes, notes + N);
+      }
+
+      static void play(std::uint8_t channel, bool loop, const note *begin,
+                       const note *end) {}
+    };
+
+    static void audio_setup() {
+
+    }
   };
 
   void color_cycle() {
