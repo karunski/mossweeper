@@ -288,9 +288,171 @@ namespace nes {
   inline auto &controller_2 =
       *(reinterpret_cast<volatile ControllerPort *>(0x4017));
 
-  class APU {
-
+  struct PulseChannelRegisters {
+    volatile std::byte control;
+    volatile std::byte sweep;
+    volatile std::byte pulse_low;
+    volatile std::byte pulse_high;
   };
+
+  class PulseChannel : private PulseChannelRegisters {
+    public:
+    void init() volatile {
+      control = std::byte{0x30};
+      sweep = std::byte{0x08};
+      pulse_low = std::byte{0};
+      pulse_high = std::byte{0};
+    }
+  };
+
+  struct TriangleChannelRegisters {
+    volatile std::byte control;
+    std::byte unused;
+    volatile std::byte timer_low;
+    volatile std::byte timer_high;
+  };
+
+  static_assert(sizeof(TriangleChannelRegisters) == 4);
+  static_assert(offsetof(TriangleChannelRegisters, timer_low) == 2);
+  static_assert(offsetof(TriangleChannelRegisters, timer_high) == 3);
+
+  class TriangleChannel : private TriangleChannelRegisters {
+  public:
+    void init() volatile {
+      control = std::byte{LengthCounterHalt};
+      timer_low  = std::byte{0};
+      timer_high = std::byte{0};
+    }
+
+    void set_period(std::uint16_t freq) volatile {
+      memcpy((void *)&timer_low, &freq, 2);
+    }
+
+    enum Control : std::uint8_t { LengthCounterHalt = 0b10000000, Unmute = 0b01000000 };
+
+    void set_control(Control c) volatile {
+      control = static_cast<std::byte>(c);
+    }
+  };
+
+  constexpr TriangleChannel::Control operator|(TriangleChannel::Control left,
+                                               TriangleChannel::Control right) {
+    return static_cast<TriangleChannel::Control>(static_cast<uint8_t>(left) |
+                                                 static_cast<uint8_t>(right));
+  }
+
+  struct NoiseChannelRegisters {
+    volatile std::byte control;
+    std::byte unused;
+    volatile std::byte period;
+    volatile std::byte length;
+  };
+
+  class NoiseChannel : private NoiseChannelRegisters {
+  public:
+    void init() volatile {
+      control = std::byte{0b00110000};
+      period = std::byte{0};
+      length = std::byte{0};
+    }
+
+    enum Control : std::uint8_t {
+      LengthCounterHalt = 0b00100000,
+      ConstantVolume = 0b00010000
+    };
+
+    void set_control_volume(const Control c, std::uint8_t volume) volatile {
+      control = static_cast<std::byte>(c | volume);
+    }
+
+    enum Mode : std::uint8_t {
+      None = 0,
+      LoopNoise = 0b10000000
+    };
+
+    static constexpr std::byte LengthCounterMax{0b11111000};
+    static constexpr std::byte LengthCounterMin{0};
+
+    void set_length_counter(std::byte lc) volatile {
+      length = lc;
+    }
+
+    void set_mode_period(const Mode mode, std::uint8_t per) volatile {
+      period = static_cast<std::byte>(mode | per);
+    }
+  };
+
+  constexpr NoiseChannel::Control operator|(NoiseChannel::Control left,
+                                            NoiseChannel::Control right) {
+    return static_cast<NoiseChannel::Control>(static_cast<std::uint8_t>(left) |
+                                              static_cast<std::uint8_t>(right));
+  }
+
+  struct DMCRegisters {
+    volatile std::byte control;
+    volatile std::byte load_counter;
+    volatile std::byte sample_address_low;
+    volatile std::byte sample_address_high;
+  };
+
+  class DMC : private DMCRegisters {
+  public:
+    void init() volatile {
+      control = std::byte{0};
+      load_counter = std::byte{0};
+      sample_address_low = std::byte{0};
+      sample_address_high = std::byte{0};
+    }
+  };
+
+  struct APU {
+    volatile PulseChannel pulse[2];
+    volatile TriangleChannel triangle;
+    volatile NoiseChannel noise;
+    volatile DMC dmc;
+
+    enum FrameCounterControl : std::uint8_t {
+      Mode_4_step = 0b0,
+      Mode_5_step = 0b10000000,
+      InhibitIrq = 0b01000000
+    };
+
+    void init() volatile {
+      dmc.init();
+      noise.init();
+      triangle.init();
+      for ( auto & p : pulse ) {
+        p.init();
+      }
+      status = std::byte{0b00001111}; // enable pulse,noise,triangle
+      frame_counter = std::byte{InhibitIrq}; // don't generate irq
+    }
+
+    void set_frame_counter(FrameCounterControl control) volatile {
+      frame_counter = std::byte{control};
+    }
+
+  private:
+    volatile std::byte oamdma;
+    volatile std::byte status;
+    volatile std::byte unused;
+    volatile std::byte frame_counter;
+  };
+
+  constexpr APU::FrameCounterControl
+  operator|(const APU::FrameCounterControl left,
+            const APU::FrameCounterControl right) {
+    return static_cast<APU::FrameCounterControl>(
+        static_cast<std::uint8_t>(left) | static_cast<std::uint8_t>(right));
+  }
+
+  static_assert(sizeof(APU) == 0x18);
+  static_assert(offsetof(APU, triangle) == 0x8);
+  static_assert(offsetof(APU, noise) == 0xc);
+  static_assert(offsetof(APU, dmc) == 0x10);
+
+  inline auto &apu =
+      *(reinterpret_cast<volatile APU *>(0x4000));
 }
 
 #endif
