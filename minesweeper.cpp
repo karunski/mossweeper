@@ -148,7 +148,7 @@ std::uint8_t cursor_anim_frame = 0;
         Traits::scroll_tile_x((Traits::ScreenWidth - Traits::WindowWidth) / 2);
       }
 
-      pad_bottom = (game_rows & 0b1);
+      pad_bottom = Traits::GameBoardHeightMustBeEven ? (game_rows & 0b1): 0;
       game_height = pad_bottom + game_rows;
       board_pos.Y =
           (Traits::ScreenHeight - (game_height + Traits::ScoreRows +
@@ -177,7 +177,7 @@ std::uint8_t cursor_anim_frame = 0;
         }
       }
       else {
-        x_off++;
+        x_off += (Traits::ScoreSize - 3);
       }
 
       DrawTile<immediate>(Traits::ScoreDigits[val / 100], x_off++, y_pos);
@@ -966,6 +966,16 @@ std::uint8_t cursor_anim_frame = 0;
     AppMode *on_vsync(FireButtonEventFilter::Event, key_scan_res) override;
   };
 
+#ifdef PLATFORM_C64
+  constexpr auto HELP1 =
+      GameBoardDraw::GenerateTileString("FIRE OR SPACE BUTTON EXPOSES TILES");
+  constexpr auto HELP2 = GameBoardDraw::GenerateTileString(
+      "HOLD FIRE BUTTON TO MARK TILE");
+#elif defined(PLATFORM_NES_NROM_128)
+  constexpr auto HELP1 = GameBoardDraw::GenerateTileString("BUTTON A EXPOSES TILES");
+  constexpr auto HELP2 = GameBoardDraw::GenerateTileString("BUTTON B MARKS TILE WITH FLAG");
+#endif
+
   struct AppModeSelectDifficulty : public AppMode {
 
     void on_init(AppMode *) override {
@@ -977,6 +987,10 @@ std::uint8_t cursor_anim_frame = 0;
           GameBoardDraw::GenerateTileString("INTERMEDIATE");
       static constexpr auto EXPERT =
           GameBoardDraw::GenerateTileString("EXPERT");
+      static constexpr auto HOW_TO_PLAY =
+          GameBoardDraw::GenerateTileString("HOW TO PLAY");
+      static constexpr auto COPYRIGHT = GameBoardDraw::GenerateTileString("COPYRIGHT 2022 KEVIN ARUNSKI");
+
       target::graphics::render_off();
       target::clear_screen();
       target::graphics::load_palettes(target::graphics::DifficultyScreenPalettes);
@@ -985,6 +999,10 @@ std::uint8_t cursor_anim_frame = 0;
       GameBoardDraw::DrawString(BEGINNER, 5, 5);
       GameBoardDraw::DrawString(INTERMEDIATE, 5, 7);
       GameBoardDraw::DrawString(EXPERT, 5, 9);
+      GameBoardDraw::DrawString(HELP1, 1, target::graphics::ScreenHeight - 6);
+      GameBoardDraw::DrawString(HELP2, 1, target::graphics::ScreenHeight - 4);
+      GameBoardDraw::DrawString(COPYRIGHT, 1, target::graphics::ScreenHeight - 2);
+
       target::graphics::render_on();
     }
 

@@ -68,7 +68,8 @@ struct target {
 
     static constexpr auto ScoreRows = std::uint8_t{2};
     static constexpr auto ScoreSize = std::uint8_t{3};
-    static constexpr auto CanExpandSprites = false;
+    static constexpr auto CanExpandSprites = true;
+    static constexpr auto GameBoardHeightMustBeEven = false;
 
     static constexpr auto NumberMarker(std::uint8_t idx) {
       return static_cast<TileType>(static_cast<std::uint8_t>(ExposedSquare) +
@@ -129,9 +130,15 @@ struct target {
 
     struct tile_to_char {
       static constexpr auto call(char c) {
-        return c == ' ' ? BLANK
-                        : static_cast<TileType>(
-                              static_cast<std::uint8_t>(LetterA) + (c - 'A'));
+        return c == ' '
+                   ? BLANK
+                   : (c >= '1' && c <= '8'
+                          ? NumberMarker(c - '0')
+                          : static_cast<TileType>(
+                                c == '0' ? static_cast<std::uint8_t>(LetterA) +
+                                               ('O' - 'A')
+                                         : static_cast<std::uint8_t>(LetterA) +
+                                               (c - 'A')));
       };
     };
 
