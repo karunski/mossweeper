@@ -4,30 +4,35 @@ on:
   push:
     branches: [ "main" ]
 
+env:
+  llvm-mos-version: v0.3.2
+
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-20.04
-
+    strategy:
+      matrix:
+        target: ['c64', 'nes-nrom-128']
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Install Ubuntu build dependencies.
+    - name: Install ninja-build on Ubuntu
       run: sudo apt-get -y install ninja-build
-      
-    - name: Fetch the latest Linux llvm-mos release.
+    - name: Cache llvm-mos download
+      id: cache-llvm-mos
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-llvm-mos-sdk-${{ env.llvm-mos-version }}
+        path: llvm-mos
+    - name: Fetch Linux llvm-mos release.
+      if: steps.cache-llvm-mos.outputs.cache-hit != 'true'
       run: >
-        curl -L https://github.com/llvm-mos/llvm-mos-sdk/releases/download/v0.3.2/llvm-mos-linux.tar.xz | 
+        curl -L https://github.com/llvm-mos/llvm-mos-sdk/releases/download/${{ env.llvm-mos-version }}/llvm-mos-linux.tar.xz | 
         tar xJf -
-        
-    - name: Configure C64
+    - name: Configure ${{matrix.target}}
       run: >
         cmake -G Ninja --toolchain llvm-mos/lib/cmake/llvm-mos-sdk/llvm-mos-toolchain.cmake 
-        -B ${{github.workspace}}/build-c64
+        -B ${{github.workspace}}/build-${{matrix.target}}
         -DCMAKE_BUILD_TYPE=MinSizeRel 
-        -DLLVM_MOS_PLATFORM=c64
-
-    - name: Build C64
-      run: cmake --build ${{github.workspace}}/build-c64
+        -DLLVM_MOS_PLATFORM=${{matrix.target}}
+    - name: Build ${{matrix.target}}
+      run: cmake --build ${{github.workspace}}/build-${{matrix.target}}
