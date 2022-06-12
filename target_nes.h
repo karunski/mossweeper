@@ -208,6 +208,7 @@ namespace nes {
     static constexpr std::uint8_t ScoreRows = 2;
     static constexpr std::uint8_t ScoreSize = 4;
     static constexpr bool CanExpandSprites = false;
+    static constexpr bool GameBoardHeightMustBeEven = true;
 
     using Emoji = MetaTile<tile_type, 2, 2>;
 
@@ -248,8 +249,14 @@ namespace nes {
 
     static constexpr Palettes DifficultyScreenPalettes = {
         WHITE,
-        {Color{Color::Pale, Color::Gray}, Color{Color::Dark, Color::Black},
-         Color{Color::Dark, Color::Black}}};
+        {{Color{Color::Dark, Color::Black}, Color{Color::Dark, Color::Black},
+          Color{Color::Dark, Color::Black}},
+         {Color{Color::Dark, Color::Black}, Color{Color::Dark, Color::Black},
+          Color{Color::Dark, Color::Black}},
+         {Color{Color::Dark, Color::Black}, Color{Color::Dark, Color::Black},
+          Color{Color::Dark, Color::Black}},
+         {Color{Color::Dark, Color::Black}, Color{Color::Dark, Color::Black},
+          Color{Color::Dark, Color::Black}}}};
 
     static constexpr Palettes GameBoardPalettes = {
         {Color::Pale, Color::Black},
@@ -416,9 +423,14 @@ namespace nes {
 
     struct tile_to_char {
       static constexpr auto call(char c) {
-        return chr_code_atlas[c == ' ' ? static_cast<std::uint8_t>(BLANK)
-                                       : static_cast<std::uint8_t>(LetterA) +
-                                             (c - 'A')];
+        return chr_code_atlas
+            [c == ' ' ? static_cast<std::uint8_t>(BLANK)
+                      : (c >= '1' && c <= '8'
+                             ? static_cast<std::uint8_t>(NumberMarker(c - '0'))
+                             : (c == '0' ? (static_cast<std::uint8_t>(LetterA) +
+                                            ('O' - 'A'))
+                                         : (static_cast<std::uint8_t>(LetterA) +
+                                            (c - 'A'))))];
       };
     };
 

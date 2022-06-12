@@ -972,8 +972,8 @@ std::uint8_t cursor_anim_frame = 0;
   constexpr auto HELP2 = GameBoardDraw::GenerateTileString(
       "HOLD FIRE BUTTON TO MARK TILE");
 #elif defined(PLATFORM_NES_NROM_128)
-  constexpr auto HELP1 = GameBoardDraw::GenerateTileString("BUTTON A EXPOSES TILES");
-  constexpr auto HELP2 = GameBoardDraw::GenerateTileString("BUTTON B MARKS TILE WITH FLAG");
+  constexpr auto HELP1 = GameBoardDraw::GenerateTileString("BUTTON A EXPOSE");
+  constexpr auto HELP2 = GameBoardDraw::GenerateTileString("BUTTON B MARK");
 #endif
 
   struct AppModeSelectDifficulty : public AppMode {
