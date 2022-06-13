@@ -13,6 +13,11 @@ jobs:
     strategy:
       matrix:
         target: ['c64', 'nes-nrom-128']
+        include:
+          - artifact: minesweeper.prg
+            target: c64
+          - artifact: minesweeper.nes
+            target: nes-nrom-128
     steps:
     - uses: actions/checkout@v3
     - name: Cache llvm-mos download
@@ -34,3 +39,8 @@ jobs:
         -DLLVM_MOS_PLATFORM=${{matrix.target}}
     - name: Build ${{matrix.target}}
       run: cmake --build ${{github.workspace}}/build-${{matrix.target}}
+    - name: Upload Artifact ${{ matrix.artifact }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.artifact }}
+        path: ${{ github.workspace }}/build-${{ matrix.target }}/${{ matrix.artifact }}
