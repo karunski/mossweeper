@@ -15,8 +15,6 @@ jobs:
         target: ['c64', 'nes-nrom-128']
     steps:
     - uses: actions/checkout@v3
-    - name: Install ninja-build on Ubuntu
-      run: sudo apt-get -y install ninja-build
     - name: Cache llvm-mos download
       id: cache-llvm-mos
       uses: actions/cache@v3
@@ -30,7 +28,7 @@ jobs:
         tar xJf -
     - name: Configure ${{matrix.target}}
       run: >
-        cmake -G Ninja --toolchain llvm-mos/lib/cmake/llvm-mos-sdk/llvm-mos-toolchain.cmake 
+        cmake --toolchain llvm-mos/lib/cmake/llvm-mos-sdk/llvm-mos-toolchain.cmake 
         -B ${{github.workspace}}/build-${{matrix.target}}
         -DCMAKE_BUILD_TYPE=MinSizeRel 
         -DLLVM_MOS_PLATFORM=${{matrix.target}}
