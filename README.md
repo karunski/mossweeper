@@ -17,6 +17,8 @@ graphics (tiles) available.
 3. Sound Effects
 4. Joystick / Controller controls
 5. Keyboard controls where applicable.
+6. The NES version is tested / working on actual NES hardware.
+7. The C64 version has not been tested on an actual C64, since I do not own one.  I have tested it on VICE and on the MiSTer C64 core.
 
 ## How to play
 
@@ -31,4 +33,10 @@ When you figure out that a tile has a mine under it, you can mark it with a flag
 'button B' on NES. 
 
 You can reset the game board by moving the cursor up to the "smiley face" at the top of the game board, and pressing the fire button.
+
+C64 Screenshot
+![vice-screenshot-expert](https://user-images.githubusercontent.com/1659725/173267692-d6dd15c0-a485-4848-9367-b938b1e4fef5.png)
+
+NES Screenshot
+![minesweeper 6 2022-06-12 22 18 18](https://user-images.githubusercontent.com/1659725/173268126-85612b88-d84e-4266-89f2-9245b4d05341.png)
 
