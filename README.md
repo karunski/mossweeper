@@ -1,5 +1,4 @@
 # Minesweeper for NES and C64
-
 ## About
 
 This is a clone of the game "minesweeper" for the NES and the C64. I created this game as a project learn about these
@@ -19,6 +18,11 @@ graphics (tiles) available.
 5. Keyboard controls where applicable.
 6. The NES version is tested / working on actual NES hardware.
 7. The C64 version has not been tested on an actual C64, since I do not own one.  I have tested it on VICE and on the MiSTer C64 core.
+
+## Downloading and Running
+
+Builds are provided under the "Releases" tab on this github project.  Just download the "rom" or 
+program file and load into whatever hardware device or emulator you like.
 
 ## How to play
 
